@@ -1,0 +1,29 @@
+{
+  "name": "@josephakern/pi-tree-sitter-cli",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Thin pi extension exposing the tree-sitter CLI as capped agent tools.",
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
+  }
+}
