@@ -1,9 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src"
+    "rootDir": ".",
+    "allowImportingTsExtensions": true
   },
   "include": [
+    "index.ts",
     "src/**/*.ts"
   ]
 }

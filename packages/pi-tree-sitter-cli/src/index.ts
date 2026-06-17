@@ -20,8 +20,6 @@ const DEFAULT_PROCESS_TIMEOUT_MS = 30_000;
 const DEFAULT_NPM_TIMEOUT_MS = 120_000;
 const MAX_INLINE_QUERY_BYTES = 100_000;
 
-const EMPTY_PARAMS = Type.Object({}, { additionalProperties: false });
-
 const PathInputs = {
   paths: Type.Optional(
     Type.Array(Type.String(), {
@@ -176,7 +174,6 @@ interface TreeSitterRunResult {
   args: string[];
   output: string;
   code: number;
-  killed: boolean;
 }
 
 interface QuerySource {
@@ -324,15 +321,15 @@ async function execCommand(
 }
 
 async function runTreeSitter(
-  _pi: ExtensionAPI,
   args: string[],
   signal: AbortSignal | undefined,
   options: TreeSitterRunOptions = {},
 ): Promise<TreeSitterRunResult> {
   const command = await resolveTreeSitterBin();
-  await mkdir(join(managedRoot(), "cache"), { recursive: true });
+  const cacheRoot = join(managedRoot(), "cache");
+  await mkdir(join(cacheRoot, "tree-sitter", "lock"), { recursive: true });
   const result = await execCommand(command, args, signal, options.processTimeoutMs ?? DEFAULT_PROCESS_TIMEOUT_MS, {
-    XDG_CACHE_HOME: join(managedRoot(), "cache"),
+    XDG_CACHE_HOME: cacheRoot,
   });
 
   const output = stripAnsi([result.stdout, result.stderr].filter(Boolean).join("\n").trim());
@@ -345,11 +342,10 @@ async function runTreeSitter(
     );
   }
 
-  return { command, args, output, code: result.code, killed: result.killed };
+  return { command, args, output, code: result.code };
 }
 
 async function runNpm(
-  _pi: ExtensionAPI,
   args: string[],
   signal: AbortSignal | undefined,
   processTimeoutMs: number,
@@ -364,7 +360,7 @@ async function runNpm(
   if (result.code !== 0) {
     throw new Error(`npm ${args.join(" ")} failed with code ${result.code}: ${output || "no output"}`);
   }
-  return { command, args, output, code: result.code, killed: result.killed };
+  return { command, args, output, code: result.code };
 }
 
 function managedRoot(): string {
@@ -634,7 +630,15 @@ function readInstallPackages(params: Record<string, unknown>): string[] {
 function buildGrammarInstallArgs(params: Record<string, unknown>): { args: string[]; processTimeoutMs: number } {
   const packages = readInstallPackages(params);
   const allowScripts = readBoolean(params, "allowScripts") === true;
-  const args = ["install", "--prefix", managedRoot(), "--save-exact", "--no-audit", "--no-fund"];
+  const args = [
+    "install",
+    "--prefix",
+    managedRoot(),
+    "--save-exact",
+    "--no-audit",
+    "--no-fund",
+    "--install-strategy=nested",
+  ];
   if (!allowScripts) args.push("--ignore-scripts");
   args.push(...packages);
   return {
@@ -677,7 +681,7 @@ export default function treeSitterCliExtension(pi: ExtensionAPI) {
 
     async execute(_toolCallId, params, signal) {
       const { args, processTimeoutMs } = buildLanguagesArgs(params as Record<string, unknown>);
-      const { command, output } = await runTreeSitter(pi, args, signal, { processTimeoutMs });
+      const { command, output } = await runTreeSitter(args, signal, { processTimeoutMs });
 
       const text =
         output ||
@@ -737,7 +741,6 @@ export default function treeSitterCliExtension(pi: ExtensionAPI) {
       if (configExists) {
         try {
           const result = await runTreeSitter(
-            pi,
             ["dump-languages", "--config-path", configPath],
             signal,
             { processTimeoutMs, throwOnNonZero: false },
@@ -812,7 +815,7 @@ export default function treeSitterCliExtension(pi: ExtensionAPI) {
       await ensureManagedPackageJson();
       const configPath = await writeManagedConfig();
       const { args, processTimeoutMs } = buildGrammarInstallArgs(params as Record<string, unknown>);
-      const installResult = await runNpm(pi, args, signal, processTimeoutMs);
+      const installResult = await runNpm(args, signal, processTimeoutMs);
       await writeManagedConfig();
 
       let languages = "(language discovery skipped)";
@@ -820,7 +823,6 @@ export default function treeSitterCliExtension(pi: ExtensionAPI) {
       let dumpExitCode: number | undefined;
       try {
         const dumpResult = await runTreeSitter(
-          pi,
           ["dump-languages", "--config-path", configPath],
           signal,
           { processTimeoutMs: DEFAULT_PROCESS_TIMEOUT_MS, throwOnNonZero: false },
@@ -892,7 +894,7 @@ export default function treeSitterCliExtension(pi: ExtensionAPI) {
 
     async execute(_toolCallId, params, signal) {
       const { args, processTimeoutMs } = buildParseArgs(params as Record<string, unknown>);
-      const result = await runTreeSitter(pi, args, signal, {
+      const result = await runTreeSitter(args, signal, {
         processTimeoutMs,
         throwOnNonZero: false,
       });
@@ -945,7 +947,7 @@ export default function treeSitterCliExtension(pi: ExtensionAPI) {
           params as Record<string, unknown>,
           querySource.queryPath,
         );
-        const result = await runTreeSitter(pi, args, signal, {
+        const result = await runTreeSitter(args, signal, {
           processTimeoutMs,
           throwOnNonZero: false,
         });
@@ -1003,7 +1005,7 @@ export default function treeSitterCliExtension(pi: ExtensionAPI) {
 
     async execute(_toolCallId, params, signal) {
       const { args, processTimeoutMs } = buildTagsArgs(params as Record<string, unknown>);
-      const result = await runTreeSitter(pi, args, signal, {
+      const result = await runTreeSitter(args, signal, {
         processTimeoutMs,
         throwOnNonZero: false,
       });

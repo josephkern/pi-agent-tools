@@ -155,27 +155,31 @@ The CLI and query language already cover the structural layer. Native language s
 
 ## Query recipes, not abstractions
 
-Keep common patterns as plain text `.scm` recipes:
+Keep common patterns as plain text `.scm` recipes plus a small skill that teaches when to use them:
 
 ```text
 queries/
-  javascript.scm
-  typescript.scm
-  python.scm
-  rust.scm
-  go.scm
-  zig.scm
-  syntax-errors.scm
+  universal/syntax-errors.scm
+  typescript/function-signatures.scm
+  typescript/imports.scm
+  typescript/tool-registrations.scm
+  javascript/function-signatures.scm
+  python/function-signatures.scm
+skills/tree-sitter-recipes/SKILL.md
 ```
 
-Recipes are cheaper than helper code. They can be copied, edited, reviewed, and deleted without changing the tool runtime.
+Recipes are cheaper than helper code. They can be copied, edited, reviewed, and deleted without changing the tool runtime. Ship a small reliable catalog, but leave project-specific patterns in project/user recipe space such as `.pi/tree-sitter/queries/` or `tree-sitter/queries/`.
 
-Useful universal recipes:
+Use `tree_sitter_tags` as the first-pass built-in navigation primitive. Use `.scm` recipes when tags are too coarse, for example when the user needs parameters, return types, import clauses, or package-specific registration patterns.
+
+Useful universal recipe:
 
 ```scheme
-(ERROR) @error
-(MISSING) @missing
+(ERROR) @syntax.error
+(MISSING) @syntax.missing
 ```
+
+Language-specific recipes should share semantic capture contracts where possible, for example `@signature.name`, `@signature.params`, and `@signature.return`.
 
 ## Parser availability
 
@@ -189,6 +193,88 @@ dump-languages currently reports Python only in this environment
 ```
 
 If broad out-of-the-box language coverage is required, prefer adding/configuring grammar repositories for the CLI before writing a custom runtime. Only keep a WASM runtime if CLI parser availability cannot meet the requirement.
+
+## Optional managed grammar cache
+
+Option A is to use npm grammar packages with a tool-local Tree-sitter config, without mutating the user's global config.
+
+Managed directory:
+
+```text
+~/.local/share/pi-tree-sitter-cli/
+  config.json
+  package.json
+  package-lock.json
+  node_modules/
+  cache/       # XDG_CACHE_HOME for tree-sitter CLI invocations
+  npm-cache/   # npm cache for managed grammar installs
+```
+
+Managed config:
+
+```json
+{
+  "parser-directories": ["~/.local/share/pi-tree-sitter-cli/node_modules"]
+}
+```
+
+Tools:
+
+- `tree_sitter_grammar_status` — inspect the tool-local cache and discovered languages.
+- `tree_sitter_grammar_install` — explicitly run npm install into the tool-local cache and rewrite the tool-local config.
+
+Rules:
+
+- Never mutate `~/.config/tree-sitter/config.json`.
+- Keep Tree-sitter and npm caches under the tool-local directory when these tools execute.
+- Never auto-install grammar packages during parse/query/tags.
+- Default npm install uses `--ignore-scripts`; allow scripts only with explicit `allowScripts=true`.
+- Use npm's nested install strategy so package-relative query paths like `node_modules/tree-sitter-javascript/queries/tags.scm` remain valid.
+- Document that npm grammar packages may contain native parser artifacts and should be trusted before install.
+
+Existing parse/query/tags/languages tools accept `configPath` or `useManagedConfig` so the agent can opt into either an explicit config or the tool-local managed config.
+
+## Agentic source organization option C
+
+When the package grows beyond the current single-file implementation, prefer a tool-per-file layout with shared context and helpers. This keeps source navigation predictable for agents: the tool name should map directly to the file that registers it.
+
+Recommended shape:
+
+```text
+src/
+  index.ts
+  context.ts               # shared runtime dependencies and helper bundle
+  constants.ts
+  schemas.ts               # TypeBox parameter schemas
+  params.ts                # parameter readers and validation helpers
+  process.ts               # process execution and executable resolution
+  managed-grammar-cache.ts # tool-local grammar cache paths/config/dependencies
+  output.ts                # truncation, formatting, ANSI stripping
+  cli-args.ts              # tree-sitter/npm argument builders
+  tools/
+    tree_sitter_languages.ts
+    tree_sitter_parse.ts
+    tree_sitter_query.ts
+    tree_sitter_tags.ts
+    tree_sitter_grammar_status.ts
+    tree_sitter_grammar_install.ts
+```
+
+Each tool module should export one registration function, for example:
+
+```ts
+export function registerParseTool(pi: ExtensionAPI, ctx: ToolContext): void {
+  pi.registerTool({ ... });
+}
+```
+
+Rules for this layout:
+
+- Keep `src/index.ts` as orchestration only: create the shared context and call the six registration functions.
+- Keep side-effecting process and filesystem helpers behind `ToolContext` so tests can inject fakes.
+- Keep CLI argument builders pure and unit-testable.
+- Keep query recipes as `.scm` assets, not TypeScript abstractions.
+- Prefer adding a new tool file over appending another large registration block to `src/index.ts`.
 
 ## Agent workflow
 

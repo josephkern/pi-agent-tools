@@ -27,6 +27,26 @@ Implemented:
 
 The minimal Tree-sitter CLI plan from `../../PLAN.md` is implemented, plus optional tool-local npm grammar management.
 
+## Query recipes
+
+This package also ships a small recipe catalog. Recipes are plain `.scm` files plus the `tree-sitter-recipes` skill; they do not wrap or replace the raw tools.
+
+Included query files:
+
+```text
+queries/
+  universal/syntax-errors.scm
+  typescript/function-signatures.scm
+  typescript/imports.scm
+  typescript/tool-registrations.scm
+  javascript/function-signatures.scm
+  python/function-signatures.scm
+```
+
+The skill recommends using `tree_sitter_tags` first for navigation, then `tree_sitter_query` with a recipe file when richer captures are needed.
+
+For project-specific patterns, prefer adding `.scm` files under `.pi/tree-sitter/queries/` or `tree-sitter/queries/` instead of adding wrapper tools.
+
 ## Development
 
 From the repository root:
@@ -39,7 +59,7 @@ npm run check
 Temporary pi load:
 
 ```bash
-pi -e ./packages/pi-tree-sitter-cli/src/index.ts
+pi -e ./packages/pi-tree-sitter-cli
 ```
 
 Project-local install once stable:
