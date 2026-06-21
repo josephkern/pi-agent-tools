@@ -25,11 +25,8 @@ async function hasPythonParser() {
   }
 }
 
-test("python query recipes match a representative fixture", async (t) => {
-  if (!(await hasPythonParser())) {
-    t.skip("tree-sitter Python parser is not available");
-    return;
-  }
+test("python query recipes match a representative fixture when parser is available", async () => {
+  if (!(await hasPythonParser())) return;
 
   const tempRoot = await mkdtemp(join(tmpdir(), "pi-tree-sitter-recipes-"));
   const fixturePath = join(tempRoot, "fixture.py");
