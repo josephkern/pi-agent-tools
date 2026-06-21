@@ -30,6 +30,9 @@ Resolve these paths relative to this skill directory.
 | pi tool registrations | `../../queries/typescript/tool-registrations.scm` | Finds `pi.registerTool({ name: ... })` calls. |
 | JavaScript signatures | `../../queries/javascript/function-signatures.scm` | Captures names and params; JavaScript has no return type syntax. |
 | Python signatures | `../../queries/python/function-signatures.scm` | Captures function/method names, params, and return annotations. |
+| Python imports | `../../queries/python/imports.scm` | Captures import sources, imported names, aliases, and wildcard imports. |
+| Python exports | `../../queries/python/exports.scm` | Captures explicit `__all__` entries plus top-level functions, classes, and assigned values. |
+| Python type declarations | `../../queries/python/type-declarations.scm` | Captures classes and PEP 695 type aliases. |
 
 Example:
 
@@ -55,6 +58,7 @@ Prefer stable semantic capture names across language-specific recipes:
 - `@import.name`
 - `@import.alias`
 - `@import.namespace`
+- `@import.star`
 - `@export.function`
 - `@export.class`
 - `@export.interface`
@@ -62,6 +66,7 @@ Prefer stable semantic capture names across language-specific recipes:
 - `@export.value`
 - `@export.name`
 - `@export.alias`
+- `@export.list`
 - `@type.class`
 - `@type.interface`
 - `@type.alias`

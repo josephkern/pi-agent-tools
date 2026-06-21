@@ -43,6 +43,9 @@ queries/
   typescript/tool-registrations.scm
   javascript/function-signatures.scm
   python/function-signatures.scm
+  python/imports.scm
+  python/exports.scm
+  python/type-declarations.scm
 ```
 
 The skill recommends using `tree_sitter_tags` first for navigation, then `tree_sitter_query` with a recipe file when richer captures are needed.
