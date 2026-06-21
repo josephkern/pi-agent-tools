@@ -38,6 +38,8 @@ queries/
   universal/syntax-errors.scm
   typescript/function-signatures.scm
   typescript/imports.scm
+  typescript/exports.scm
+  typescript/type-declarations.scm
   typescript/tool-registrations.scm
   javascript/function-signatures.scm
   python/function-signatures.scm
