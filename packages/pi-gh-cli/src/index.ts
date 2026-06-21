@@ -17,6 +17,7 @@ export default function ghCliExtension(pi: ExtensionAPI): void {
       "Prefer token-efficient gh output flags such as --json, --jq, --limit, and --repo.",
       "Use read-only gh commands for exploration, such as auth status, repo view, issue list/view, pr list/view, and run list/view.",
       "Ask the user before mutating GitHub state, such as issue create/edit/close, PR operations, release operations, or workflow dispatch.",
+      "For multiline Markdown fields like issue bodies, write a temp file and pass --body-file; do not pass literal `\\n` strings.",
       "If authentication or repository context is unclear, run `gh auth status` or pass --repo owner/repo explicitly.",
     ],
     parameters: GhCliParams,

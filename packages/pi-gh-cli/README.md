@@ -33,6 +33,12 @@ For token efficiency, prefer `gh` flags such as:
 
 Agents should ask before mutating GitHub state, such as creating/editing issues, changing PRs, managing releases, or dispatching workflows.
 
+For multiline Markdown fields like issue bodies, use `--body-file` with a real file. Do not pass literal `\n` strings; GitHub will render them as backslash-n text instead of line breaks.
+
+## Skill
+
+This package ships a `gh-cli` skill with workflow guidance for token-efficient GitHub CLI usage and safe multiline Markdown body handling.
+
 ## Development
 
 From the repository root:
