@@ -10,7 +10,7 @@ Use this skill when a user asks for structural code facts and the raw `tree_sitt
 ## Default workflow
 
 1. Run `tree_sitter_languages` to confirm parser availability. Use `useManagedConfig=true` when relying on grammars installed with `tree_sitter_grammar_install`.
-2. Run `tree_sitter_tags` first for outlines, definitions, references, and calls when a grammar provides `queries/tags.scm`.
+2. Run `tree_sitter_tags` first for outlines, definitions, references, and calls when a grammar provides `queries/tags.scm`; set `compact=true` unless you need raw tag lines.
 3. Use `tree_sitter_query` with a recipe `.scm` file when tags are too coarse or when the user needs richer shape, such as parameters, return annotations, imports, exports, or tool registrations.
 4. Set `compact=true` for token-efficient capture output unless you specifically need the raw Tree-sitter CLI match layout.
 5. Use `tree_sitter_parse` on a representative file or reduced snippet when a recipe fails, then adapt the query to the grammar node names.

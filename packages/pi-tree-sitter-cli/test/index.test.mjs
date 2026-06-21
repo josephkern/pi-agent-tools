@@ -193,6 +193,18 @@ test("query tool supports compact capture output", async () => {
   assert.doesNotMatch(result.content[0].text, /pattern:/);
 });
 
+test("tags tool supports compact output", async () => {
+  const result = await registeredTool("tree_sitter_tags").execute(
+    "test-call",
+    { paths: ["fixture.ts"], compact: true, processTimeoutMs: 1_000 },
+    undefined,
+  );
+
+  assert.equal(result.details.compact, true);
+  assert.match(result.content[0].text, /fixture\.ts:1:1 function\.def fake/);
+  assert.doesNotMatch(result.content[0].text, /\| function def/);
+});
+
 test("grammar install writes managed config and defaults to ignore-scripts", async () => {
   const result = await registeredTool("tree_sitter_grammar_install").execute(
     "test-call",

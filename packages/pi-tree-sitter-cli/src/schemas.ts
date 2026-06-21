@@ -116,6 +116,9 @@ export const TagsParams = Type.Object(
   {
     ...PathInputs,
     ...CommonCliInputs,
+    compact: Type.Optional(
+      Type.Boolean({ description: "Format tag output as compact file:line:column kind.role name lines." }),
+    ),
     time: Type.Optional(Type.Boolean({ description: "Measure tag generation time." })),
   },
   { additionalProperties: false },

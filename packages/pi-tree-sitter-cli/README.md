@@ -21,7 +21,7 @@ Implemented:
 - `tree_sitter_languages` — wraps `tree-sitter dump-languages`
 - `tree_sitter_parse` — wraps `tree-sitter parse`
 - `tree_sitter_query` — wraps `tree-sitter query`; pass `compact: true` for token-efficient capture lines
-- `tree_sitter_tags` — wraps `tree-sitter tags`
+- `tree_sitter_tags` — wraps `tree-sitter tags`; pass `compact: true` for token-efficient tag lines
 - `tree_sitter_grammar_status` — inspects the tool-local grammar cache
 - `tree_sitter_grammar_install` — explicitly installs npm grammar packages into the tool-local cache
 
