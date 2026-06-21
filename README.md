@@ -9,6 +9,7 @@ Expose the tool, do not domesticate it. The language is the abstraction; the plu
 ```text
 packages/
   pi-tree-sitter-cli/   Thin pi extension exposing the tree-sitter CLI
+  pi-gh-cli/            Thin pi extension exposing the GitHub CLI
 ```
 
 ## Development
