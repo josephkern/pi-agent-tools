@@ -22,6 +22,52 @@ interface QuerySource {
   cleanup(): Promise<void>;
 }
 
+function compactCaptureText(text: string): string {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,;:)\]>}])/g, "$1")
+    .replace(/([([{<])\s+/g, "$1")
+    .trim();
+}
+
+function compactQueryOutput(output: string): string {
+  const lines = output.split(/\r?\n/);
+  const compactLines: string[] = [];
+  let currentFile: string | undefined;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (line.length > 0 && !/^\s/.test(line)) {
+      currentFile = line;
+      continue;
+    }
+
+    const capture = line.match(
+      /^\s*(?:pattern:\s*\d+,\s*)?capture:\s*\d+\s*-\s*([^,]+),\s*start:\s*\((\d+),\s*(\d+)\),\s*end:\s*\((\d+),\s*(\d+)\),\s*text:\s*`(.*)$/,
+    );
+    if (!capture || !currentFile) continue;
+
+    const [, name, rowText, columnText, , , firstTextPart] = capture;
+    const textParts = [firstTextPart ?? ""];
+    while (textParts[textParts.length - 1] !== undefined && !textParts[textParts.length - 1].endsWith("`")) {
+      index += 1;
+      if (index >= lines.length) break;
+      textParts.push(lines[index] ?? "");
+    }
+
+    const finalPart = textParts[textParts.length - 1];
+    if (finalPart !== undefined && finalPart.endsWith("`")) {
+      textParts[textParts.length - 1] = finalPart.slice(0, -1);
+    }
+
+    const row = Number(rowText) + 1;
+    const column = Number(columnText) + 1;
+    compactLines.push(`${currentFile}:${row}:${column} ${name} ${compactCaptureText(textParts.join("\n"))}`);
+  }
+
+  return compactLines.length > 0 ? compactLines.join("\n") : "(no query captures)";
+}
+
 async function prepareQuerySource(params: Record<string, unknown>): Promise<QuerySource> {
   const query = readString(params, "query");
   const queryFile = readString(params, "queryFile");
@@ -65,6 +111,7 @@ export function registerQueryTool(pi: ExtensionAPI, ctx: ToolContext): void {
     promptGuidelines: [
       "Use tree_sitter_query after tree_sitter_parse has revealed the grammar node names for a file.",
       "Use inline query for short one-off patterns and queryFile for reusable or large .scm queries.",
+      "Set compact=true when you need token-efficient capture output instead of the raw Tree-sitter CLI format.",
       "Use rowRange or containingRowRange with tree_sitter_query to restrict structural searches instead of adding custom helper tools.",
     ],
     parameters: QueryParams,
@@ -81,7 +128,8 @@ export function registerQueryTool(pi: ExtensionAPI, ctx: ToolContext): void {
           throwOnNonZero: false,
         });
 
-        const text = result.output || "(no query matches)";
+        const compact = (params as Record<string, unknown>).compact === true;
+        const text = compact && result.code === 0 ? compactQueryOutput(result.output) : result.output || "(no query matches)";
         const truncation = truncateToolOutput(text);
         const exitNotice =
           result.code === 0
@@ -106,6 +154,7 @@ export function registerQueryTool(pi: ExtensionAPI, ctx: ToolContext): void {
             args: result.args,
             exitCode: result.code,
             inlineQuery: querySource.inline,
+            compact,
             truncation,
           },
         };

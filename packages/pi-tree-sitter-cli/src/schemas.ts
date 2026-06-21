@@ -90,6 +90,9 @@ export const QueryParams = Type.Object(
     ...PathInputs,
     ...CommonCliInputs,
     captures: Type.Optional(Type.Boolean({ description: "Order output by captures instead of matches." })),
+    compact: Type.Optional(
+      Type.Boolean({ description: "Format capture output as compact file:line:column capture text lines." }),
+    ),
     time: Type.Optional(Type.Boolean({ description: "Measure query execution time." })),
     byteRange: Type.Optional(
       Type.String({ description: "Byte range to query, formatted as start:end." }),

@@ -41,6 +41,15 @@ if (command === "parse") {
 }
 
 if (command === "query") {
+  if (args.includes("compact-fixture.ts")) {
+    const tick = String.fromCharCode(96);
+    console.log('compact-fixture.ts');
+    console.log('    pattern:  0, capture: 0 - signature.name, start: (1, 9), end: (1, 12), text: ' + tick + 'foo' + tick);
+    console.log('    pattern:  0, capture: 1 - signature.params, start: (1, 12), end: (3, 1), text: ' + tick + '(foo,');
+    console.log('  bar');
+    console.log(')' + tick);
+    process.exit(0);
+  }
   console.log('query ok');
   process.exit(0);
 }
@@ -163,6 +172,25 @@ test("query tool supports inline queries and range arguments", async () => {
   assert.ok(result.details.args.includes("--row-range"));
   assert.ok(result.details.args.includes("1:2"));
   assert.match(result.content[0].text, /query ok/);
+});
+
+test("query tool supports compact capture output", async () => {
+  const result = await registeredTool("tree_sitter_query").execute(
+    "test-call",
+    {
+      query: "(function_declaration name: (identifier) @signature.name)",
+      paths: ["compact-fixture.ts"],
+      captures: true,
+      compact: true,
+      processTimeoutMs: 1_000,
+    },
+    undefined,
+  );
+
+  assert.equal(result.details.compact, true);
+  assert.match(result.content[0].text, /compact-fixture\.ts:2:10 signature\.name foo/);
+  assert.match(result.content[0].text, /compact-fixture\.ts:2:13 signature\.params \(foo, bar\)/);
+  assert.doesNotMatch(result.content[0].text, /pattern:/);
 });
 
 test("grammar install writes managed config and defaults to ignore-scripts", async () => {
