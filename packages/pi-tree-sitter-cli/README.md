@@ -2,13 +2,88 @@
 
 Thin pi extension for exposing the existing `tree-sitter` CLI to agents.
 
+## Installation
+
+Install this package by itself from npm:
+
+```bash
+pi install npm:@josephakern/pi-tree-sitter-cli
+```
+
+Install it for the current project instead of globally:
+
+```bash
+pi install -l npm:@josephakern/pi-tree-sitter-cli
+```
+
+Try it for one pi run without saving it to settings:
+
+```bash
+pi -e npm:@josephakern/pi-tree-sitter-cli
+```
+
+For local development from this monorepo:
+
+```bash
+pi install -l ./packages/pi-tree-sitter-cli
+```
+
+This pi package exposes Tree-sitter, but it does not install the `tree-sitter` CLI or language grammars. Install the CLI and any globally available grammars with npm, for example:
+
+```bash
+npm install -g tree-sitter-cli tree-sitter-typescript tree-sitter-python
+```
+
+Then confirm Tree-sitter can discover them:
+
+```bash
+tree-sitter dump-languages
+```
+
 ## Contract
 
 This package does not install, bundle, or vendor Tree-sitter itself. It requires an existing `tree-sitter` executable on `PATH`, or an explicit `TREE_SITTER_BIN=/absolute/path/to/tree-sitter`.
 
+At runtime, pi provides the pi extension peer packages used by this package: `@earendil-works/pi-coding-agent` and `typebox`. The external `tree-sitter` CLI and language grammar packages are separate system/npm installs.
+
 If the executable is missing, tools fail with installation/configuration guidance instead of silently falling back or attempting auto-installation.
 
 Optional grammar acquisition is explicit: `tree_sitter_grammar_install` installs npm grammar packages into a tool-local cache and writes a tool-local Tree-sitter config. It does not mutate your global Tree-sitter config. Tree-sitter and npm cache paths are also kept under the tool-local cache when these tools execute.
+
+## Grammar installation options
+
+Tree-sitter discovers grammars from the `parser-directories` listed in its config. If you want a grammar to behave like the globally available Python grammar, install the npm grammar package into a directory already listed in the default Tree-sitter config, commonly the active global npm prefix:
+
+```bash
+npm install -g tree-sitter-typescript tree-sitter-javascript tree-sitter-rust
+```
+
+Then verify:
+
+```bash
+tree-sitter dump-languages
+```
+
+Grammars installed this way are available to the default tool calls, without `useManagedConfig`.
+
+For isolated, tool-local installation, use this package's managed cache instead:
+
+```json
+{
+  "packages": ["tree-sitter-typescript"],
+  "allowScripts": true
+}
+```
+
+via `tree_sitter_grammar_install`, then call the other Tree-sitter tools with:
+
+```json
+{
+  "useManagedConfig": true
+}
+```
+
+Use `tree_sitter_languages` to inspect the default config and `tree_sitter_grammar_status` to inspect the managed cache.
 
 ## Principle
 

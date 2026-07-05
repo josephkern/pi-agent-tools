@@ -11,42 +11,52 @@ import {
 } from "../output.ts";
 import { TagsParams } from "../schemas.ts";
 
-function compactTagsOutput(output: string): string {
+function compactTagsOutput(output: string, defaultFile?: string): string {
   const compactLines: string[] = [];
   let currentFile: string | undefined;
 
   for (const line of output.split(/\r?\n/)) {
-    const tag = parseTagLine(line, currentFile);
+    const tag = parseTagLine(line, currentFile, defaultFile);
     if (tag) {
       compactLines.push(tag);
       continue;
     }
 
-    if (line.length > 0 && !/^\s/.test(line)) currentFile = line;
+    if (line.length > 0 && !/^\s/.test(line) && !line.includes("|")) currentFile = line;
   }
 
   return compactLines.length > 0 ? compactLines.join("\n") : "(no compact tags)";
 }
 
-function parseTagLine(line: string, currentFile: string | undefined): string | undefined {
-  let file = currentFile;
-  let body = line.trim();
-
-  const tabIndex = body.indexOf("\t");
-  if (tabIndex >= 0) {
-    file = body.slice(0, tabIndex);
-    body = body.slice(tabIndex + 1).trim();
-  }
-
+function parseTagLine(
+  line: string,
+  currentFile: string | undefined,
+  defaultFile: string | undefined,
+): string | undefined {
+  const file = currentFile ?? defaultFile;
   if (!file) return undefined;
 
-  const tag = body.match(/^(.+?)\s*\|\s*(\S+)\s+(\S+)\s+\((\d+),\s*(\d+)\)\s+-\s+\((\d+),\s*(\d+)\)/);
+  const tag = line
+    .trim()
+    .match(/^(.+?)\s*\|\s*(\S+)\s+(\S+)\s+\((\d+),\s*(\d+)\)\s+-\s+\((\d+),\s*(\d+)\)/);
   if (!tag) return undefined;
 
   const [, name, kind, role, rowText, columnText] = tag;
   const row = Number(rowText) + 1;
   const column = Number(columnText) + 1;
   return `${file}:${row}:${column} ${kind}.${role} ${name.trim()}`;
+}
+
+function hasGlobPattern(path: string): boolean {
+  return /[*?[\]{}]/.test(path);
+}
+
+function defaultTagFile(params: Record<string, unknown>): string | undefined {
+  const paths = params.paths;
+  if (!Array.isArray(paths) || paths.length !== 1) return undefined;
+  const [path] = paths;
+  if (typeof path !== "string" || hasGlobPattern(path)) return undefined;
+  return path;
 }
 
 export function registerTagsTool(pi: ExtensionAPI, ctx: ToolContext): void {
@@ -66,14 +76,17 @@ export function registerTagsTool(pi: ExtensionAPI, ctx: ToolContext): void {
     parameters: TagsParams,
 
     async execute(_toolCallId, params, signal) {
-      const { args, processTimeoutMs } = buildTagsArgs(params as Record<string, unknown>);
+      const rawParams = params as Record<string, unknown>;
+      const { args, processTimeoutMs } = buildTagsArgs(rawParams);
       const result = await ctx.runTreeSitter(args, signal, {
         processTimeoutMs,
         throwOnNonZero: false,
       });
 
-      const compact = (params as Record<string, unknown>).compact === true;
-      const text = compact && result.code === 0 ? compactTagsOutput(result.output) : result.output || "(no tags returned)";
+      const compact = rawParams.compact === true;
+      const text = compact && result.code === 0
+        ? compactTagsOutput(result.output, defaultTagFile(rawParams))
+        : result.output || "(no tags returned)";
       const truncation = truncateToolOutput(text);
       const exitNotice =
         result.code === 0

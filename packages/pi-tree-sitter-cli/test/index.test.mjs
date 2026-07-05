@@ -42,6 +42,7 @@ if (command === "parse") {
 
 if (command === "query") {
   if (args.includes("compact-fixture.ts")) {
+    // Mirror real tree-sitter query --captures output: a file header followed by indented capture rows.
     const tick = String.fromCharCode(96);
     console.log('compact-fixture.ts');
     console.log('    pattern:  0, capture: 0 - signature.name, start: (1, 9), end: (1, 12), text: ' + tick + 'foo' + tick);
@@ -55,7 +56,14 @@ if (command === "query") {
 }
 
 if (command === "tags") {
-  console.log('fixture.ts\tfake | function def (0, 0) - (0, 4) fake');
+  // Mirror real tree-sitter tags output: single-file output has no file header;
+  // multi-file output has a file header followed by indented tag rows.
+  if (args.includes("multi-tags.ts")) {
+    console.log('multi-tags.ts');
+    console.log('    fake\t | function\tdef (0, 0) - (0, 4) fake');
+    process.exit(0);
+  }
+  console.log('fake\t | function\tdef (0, 0) - (0, 4) fake');
   process.exit(0);
 }
 
@@ -202,7 +210,18 @@ test("tags tool supports compact output", async () => {
 
   assert.equal(result.details.compact, true);
   assert.match(result.content[0].text, /fixture\.ts:1:1 function\.def fake/);
-  assert.doesNotMatch(result.content[0].text, /\| function def/);
+  assert.doesNotMatch(result.content[0].text, /\| function\s+def/);
+});
+
+test("tags tool supports compact output with file headers", async () => {
+  const result = await registeredTool("tree_sitter_tags").execute(
+    "test-call",
+    { paths: ["multi-tags.ts"], compact: true, processTimeoutMs: 1_000 },
+    undefined,
+  );
+
+  assert.equal(result.details.compact, true);
+  assert.match(result.content[0].text, /multi-tags\.ts:1:1 function\.def fake/);
 });
 
 test("grammar install writes managed config and defaults to ignore-scripts", async () => {

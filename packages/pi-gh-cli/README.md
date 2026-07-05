@@ -2,9 +2,37 @@
 
 Thin pi extension for exposing the existing GitHub CLI (`gh`) to agents.
 
+## Installation
+
+Install this package by itself from npm:
+
+```bash
+pi install npm:@josephakern/pi-gh-cli
+```
+
+Install it for the current project instead of globally:
+
+```bash
+pi install -l npm:@josephakern/pi-gh-cli
+```
+
+Try it for one pi run without saving it to settings:
+
+```bash
+pi -e npm:@josephakern/pi-gh-cli
+```
+
+For local development from this monorepo:
+
+```bash
+pi install -l ./packages/pi-gh-cli
+```
+
 ## Contract
 
 This package does not install, bundle, or authenticate GitHub CLI. It requires an existing `gh` executable on `PATH`, or `GH_BIN=/absolute/path/to/gh`, and whatever auth state `gh` normally uses.
+
+At runtime, pi provides the pi extension peer packages used by this package: `@earendil-works/pi-coding-agent` and `typebox`. The external GitHub CLI (`gh`) is a separate system install and must be authenticated independently.
 
 The tool runs `gh` with an argument array and no shell. Output is capped and formatted for pi.
 

@@ -19,12 +19,14 @@ before(async () => {
 const args = process.argv.slice(2);
 
 if (args.join(" ") === "auth status") {
+  // Mirror the human-readable shape of gh auth status output.
   console.log("github.com");
   console.log("  ✓ Logged in");
   process.exit(0);
 }
 
 if (args[0] === "issue" && args[1] === "list") {
+  // Mirror gh issue list --json number,title,state: compact JSON array on stdout.
   console.log(JSON.stringify([{ number: 1, title: "Test issue", state: "OPEN" }]));
   process.exit(0);
 }

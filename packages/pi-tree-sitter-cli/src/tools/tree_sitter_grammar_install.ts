@@ -16,6 +16,7 @@ export function registerGrammarInstallTool(pi: ExtensionAPI, ctx: ToolContext): 
     promptGuidelines: [
       "Use tree_sitter_grammar_install only when the user explicitly asks to install grammar packages or approves parser acquisition.",
       "tree_sitter_grammar_install mutates the tool-local cache and runs npm; it never edits the user's global Tree-sitter config.",
+      "Grammars installed by this tool require useManagedConfig=true in tree_sitter_languages, parse, query, and tags; for Python-style default availability, tell the user to use npm install -g tree-sitter-<language> instead.",
       "By default tree_sitter_grammar_install passes --ignore-scripts. Set allowScripts=true only when the user accepts npm lifecycle script execution.",
     ],
     parameters: GrammarInstallParams,

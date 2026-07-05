@@ -21,7 +21,8 @@ export function registerLanguagesTool(pi: ExtensionAPI, ctx: ToolContext): void 
     promptSnippet: "tree_sitter_languages — list parsers known to the tree-sitter CLI",
     promptGuidelines: [
       "Use tree_sitter_languages before parsing or querying a new language to verify Tree-sitter parser availability.",
-      "Use tree_sitter_languages with useManagedConfig=true after tree_sitter_grammar_install to inspect tool-local grammar packages.",
+      "If a grammar is missing from the default config, suggest installing its npm package globally, e.g. `npm install -g tree-sitter-typescript`, when the user wants Python-style global availability.",
+      "Use tree_sitter_languages with useManagedConfig=true after tree_sitter_grammar_install to inspect tool-local grammar packages; tools then need useManagedConfig=true.",
       "If tree_sitter_languages reports that the Tree-sitter CLI is missing, ask the user to install tree-sitter-cli or set TREE_SITTER_BIN instead of trying parse/query/tag tools.",
     ],
     parameters: LanguageParams,

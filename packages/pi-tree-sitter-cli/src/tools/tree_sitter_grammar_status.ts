@@ -16,6 +16,7 @@ export function registerGrammarStatusTool(pi: ExtensionAPI, ctx: ToolContext): v
     promptGuidelines: [
       "Use tree_sitter_grammar_status before tree_sitter_grammar_install when you need to inspect the tool-local grammar cache.",
       "Use tree_sitter_grammar_status after tree_sitter_grammar_install to verify languages discovered by the managed config.",
+      "If the user wants grammars available without useManagedConfig, tell them to install npm grammar packages globally, e.g. `npm install -g tree-sitter-typescript`, and verify with tree_sitter_languages.",
     ],
     parameters: GrammarStatusParams,
 
@@ -62,6 +63,9 @@ export function registerGrammarStatusTool(pi: ExtensionAPI, ctx: ToolContext): v
         "",
         "Discovered languages:",
         languages,
+        "",
+        "Default/global grammar note:",
+        "Install npm grammar packages globally, e.g. `npm install -g tree-sitter-typescript`, when you want Tree-sitter's default config to discover them without useManagedConfig. Verify with tree_sitter_languages.",
       ].join("\n");
       const truncation = truncateToolOutput(body);
 
