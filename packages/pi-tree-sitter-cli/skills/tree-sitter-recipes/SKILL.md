@@ -1,6 +1,6 @@
 ---
 name: tree-sitter-recipes
-description: Use raw Tree-sitter CLI tools with shipped and project .scm query recipes. Prefer tags first, then query recipes for richer shapes like signatures and imports.
+description: Use raw Tree-sitter CLI tools with shipped and project .scm query recipes. Prefer focused recipe queries over broad repo dumps for structural facts.
 ---
 
 # Tree-sitter Recipes
@@ -10,11 +10,14 @@ Use this skill when a user asks for structural code facts and the raw `tree_sitt
 ## Default workflow
 
 1. Run `tree_sitter_languages` to confirm parser availability. Use `useManagedConfig=true` when relying on grammars installed with `tree_sitter_grammar_install`.
-2. Run `tree_sitter_tags` first for outlines, definitions, references, and calls when a grammar provides `queries/tags.scm`; set `compact=true` unless you need raw tag lines.
-3. Use `tree_sitter_query` with a recipe `.scm` file when tags are too coarse or when the user needs richer shape, such as parameters, return annotations, imports, exports, or tool registrations.
-4. Set `compact=true` for token-efficient capture output unless you specifically need the raw Tree-sitter CLI match layout.
-5. Use `tree_sitter_parse` on a representative file or reduced snippet when a recipe fails, then adapt the query to the grammar node names.
-6. Summarize captures for the user. Raw Tree-sitter CLI rows are zero-based; compact output converts captures to one-based `file:line:column` locations.
+2. If a needed grammar is missing, explain the two installation paths: install an npm grammar globally, e.g. `npm install -g tree-sitter-typescript`, so the default Tree-sitter config can discover it; or use `tree_sitter_grammar_install` for an isolated tool-local cache and pass `useManagedConfig=true` afterward.
+3. Run `tree_sitter_parse` with `mode="json-summary"` for broad health checks, file counts, and syntax status.
+4. Ask a narrow structural question, then choose the smallest useful path scope: one file, package, or directory before the repo root.
+5. Prefer `tree_sitter_query` with a recipe `.scm` file for imports, exports, signatures, types, or tool registrations.
+6. Use `tree_sitter_tags` for definitions/references/calls only when that is the goal, and avoid whole-repo tag dumps unless explicitly needed.
+7. Set `compact=true` for token-efficient formatting, but remember it does not reduce match count; narrow the query and paths first.
+8. Use `tree_sitter_parse` on a representative file or reduced snippet when a recipe fails, then adapt the query to the grammar node names.
+9. Summarize captures for the user. Raw Tree-sitter CLI rows are zero-based; compact output converts captures to one-based `file:line:column` locations.
 
 ## Shipped query recipes
 
