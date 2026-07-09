@@ -119,6 +119,8 @@ queries/
   typescript/type-declarations.scm
   typescript/tool-registrations.scm
   javascript/function-signatures.scm
+  javascript/imports.scm
+  javascript/exports.scm
   python/function-signatures.scm
   python/imports.scm
   python/exports.scm

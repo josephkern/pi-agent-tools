@@ -26,12 +26,14 @@ Resolve these paths relative to this skill directory.
 | Task | Query file | Notes |
 | --- | --- | --- |
 | Syntax errors | `../../queries/universal/syntax-errors.scm` | Captures `@syntax.error` and `@syntax.missing`; works across most grammars. |
-| TypeScript signatures | `../../queries/typescript/function-signatures.scm` | Captures `@signature.name`, `@signature.params`, `@signature.return`. |
+| TypeScript signatures | `../../queries/typescript/function-signatures.scm` | Captures `@signature.name`, `@signature.params`, `@signature.return`, including arrow functions, function expressions, and class arrow fields. |
 | TypeScript imports | `../../queries/typescript/imports.scm` | Captures import sources/default/named/namespace imports. |
-| TypeScript exports | `../../queries/typescript/exports.scm` | Captures exported functions, classes, interfaces, type aliases, values, and export clauses. |
-| TypeScript type declarations | `../../queries/typescript/type-declarations.scm` | Captures classes, interfaces, type aliases, and enums. |
+| TypeScript exports | `../../queries/typescript/exports.scm` | Captures exported functions, classes (incl. abstract), interfaces, type aliases, enums, values, export clauses, re-export sources, and default exports. |
+| TypeScript type declarations | `../../queries/typescript/type-declarations.scm` | Captures classes (incl. abstract), interfaces, type aliases, and enums. |
 | pi tool registrations | `../../queries/typescript/tool-registrations.scm` | Finds `pi.registerTool({ name: ... })` calls. |
-| JavaScript signatures | `../../queries/javascript/function-signatures.scm` | Captures names and params; JavaScript has no return type syntax. |
+| JavaScript signatures | `../../queries/javascript/function-signatures.scm` | Captures names and params, including arrow functions, function expressions, and class arrow fields; JavaScript has no return type syntax. |
+| JavaScript imports | `../../queries/javascript/imports.scm` | Captures import sources/default/named/namespace imports. |
+| JavaScript exports | `../../queries/javascript/exports.scm` | Captures exported functions, classes, values, export clauses, re-export sources, and default exports. |
 | Python signatures | `../../queries/python/function-signatures.scm` | Captures function/method names, params, and return annotations. |
 | Python imports | `../../queries/python/imports.scm` | Captures import sources, imported names, aliases, and wildcard imports. |
 | Python exports | `../../queries/python/exports.scm` | Captures explicit `__all__` entries plus top-level functions, classes, and assigned values. |
@@ -66,10 +68,14 @@ Prefer stable semantic capture names across language-specific recipes:
 - `@export.class`
 - `@export.interface`
 - `@export.type`
+- `@export.enum`
 - `@export.value`
 - `@export.name`
 - `@export.alias`
 - `@export.list`
+- `@export.source`
+- `@export.namespace`
+- `@export.default`
 - `@type.class`
 - `@type.interface`
 - `@type.alias`
