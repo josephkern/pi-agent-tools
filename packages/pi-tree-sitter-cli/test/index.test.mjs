@@ -167,6 +167,16 @@ test("tools reject invalid parameter combinations before spawning", async () => 
       ),
     /requires exactly one of `query` or `queryFile`/,
   );
+
+  await assert.rejects(
+    () =>
+      registeredTool("tree_sitter_parse").execute(
+        "test-call",
+        { paths: ["fixture.ts"], processTimeoutMs: 3_600_000 },
+        undefined,
+      ),
+    /processTimeoutMs must be at most 600000/,
+  );
 });
 
 test("option-like positional values are passed after -- instead of as flags", async () => {

@@ -19,7 +19,11 @@ const ConfigInputs = {
 
 const ProcessTimeoutInput = {
   processTimeoutMs: Type.Optional(
-    Type.Number({ description: "Wrapper process timeout in milliseconds.", minimum: 1 }),
+    Type.Number({
+      description: "Wrapper process timeout in milliseconds (max 600000).",
+      minimum: 1,
+      maximum: 600_000,
+    }),
   ),
 } as const;
 

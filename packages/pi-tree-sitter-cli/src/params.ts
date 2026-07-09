@@ -1,4 +1,4 @@
-import { DEFAULT_PROCESS_TIMEOUT_MS } from "./constants.ts";
+import { DEFAULT_PROCESS_TIMEOUT_MS, MAX_PROCESS_TIMEOUT_MS } from "./constants.ts";
 import { managedConfigPath } from "./managed-grammar-cache.ts";
 
 export function readString(params: Record<string, unknown>, key: string): string | undefined {
@@ -42,6 +42,16 @@ export function readStringOption(
   if (value === undefined) return undefined;
   if (!allowed.has(value)) {
     throw new Error(`${key} must be one of: ${Array.from(allowed).join(", ")}`);
+  }
+  return value;
+}
+
+export function readProcessTimeout(params: Record<string, unknown>, fallback: number): number {
+  const value = readPositiveInteger(params, "processTimeoutMs") ?? fallback;
+  if (value > MAX_PROCESS_TIMEOUT_MS) {
+    throw new Error(
+      `processTimeoutMs must be at most ${MAX_PROCESS_TIMEOUT_MS} (10 minutes); long runs should be narrowed, not extended.`,
+    );
   }
   return value;
 }
@@ -92,5 +102,5 @@ export function addCommonCliArgs(args: string[], params: Record<string, unknown>
   if (grammarPath) args.push("--grammar-path", grammarPath);
   const scope = readString(params, "scope");
   if (scope) args.push("--scope", scope);
-  return readPositiveInteger(params, "processTimeoutMs") ?? DEFAULT_PROCESS_TIMEOUT_MS;
+  return readProcessTimeout(params, DEFAULT_PROCESS_TIMEOUT_MS);
 }

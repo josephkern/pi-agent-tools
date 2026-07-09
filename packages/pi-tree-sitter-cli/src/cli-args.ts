@@ -12,6 +12,7 @@ import {
   readBoolean,
   readPathInputs,
   readPositiveInteger,
+  readProcessTimeout,
   readString,
   readStringArray,
   readStringOption,
@@ -27,7 +28,7 @@ export function buildLanguagesArgs(params: Record<string, unknown>): CliArgsResu
   addConfigArg(args, params);
   return {
     args,
-    processTimeoutMs: readPositiveInteger(params, "processTimeoutMs") ?? DEFAULT_PROCESS_TIMEOUT_MS,
+    processTimeoutMs: readProcessTimeout(params, DEFAULT_PROCESS_TIMEOUT_MS),
   };
 }
 
@@ -117,6 +118,6 @@ export function buildGrammarInstallArgs(params: Record<string, unknown>): CliArg
   args.push(...packages);
   return {
     args,
-    processTimeoutMs: readPositiveInteger(params, "processTimeoutMs") ?? DEFAULT_NPM_TIMEOUT_MS,
+    processTimeoutMs: readProcessTimeout(params, DEFAULT_NPM_TIMEOUT_MS),
   };
 }

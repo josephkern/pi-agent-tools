@@ -4,6 +4,7 @@ export const TREE_SITTER_BIN = process.env.TREE_SITTER_BIN?.trim() || DEFAULT_TR
 export const NPM_BIN = process.env.NPM_BIN?.trim() || DEFAULT_NPM_BIN;
 export const DEFAULT_PROCESS_TIMEOUT_MS = 30_000;
 export const DEFAULT_NPM_TIMEOUT_MS = 120_000;
+export const MAX_PROCESS_TIMEOUT_MS = 600_000;
 export const MAX_INLINE_QUERY_BYTES = 100_000;
 // Hard cap on captured child output; generous headroom over the display
 // truncation limits so compact post-processing still sees plenty of input.

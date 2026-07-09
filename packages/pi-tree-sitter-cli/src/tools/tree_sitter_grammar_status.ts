@@ -3,7 +3,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_PROCESS_TIMEOUT_MS } from "../constants.ts";
 import type { ToolContext } from "../context.ts";
 import { formatInvocation, truncateToolOutput, truncationNotice } from "../output.ts";
-import { readPositiveInteger } from "../params.ts";
+import { readProcessTimeout } from "../params.ts";
 import { GrammarStatusParams } from "../schemas.ts";
 
 export function registerGrammarStatusTool(pi: ExtensionAPI, ctx: ToolContext): void {
@@ -28,8 +28,7 @@ export function registerGrammarStatusTool(pi: ExtensionAPI, ctx: ToolContext): v
       const dependencies = await ctx.readManagedDependencies();
       const configExists = await ctx.fileExists(configPath);
       const packageJsonExists = await ctx.fileExists(packageJsonPath);
-      const processTimeoutMs = readPositiveInteger(params as Record<string, unknown>, "processTimeoutMs") ??
-        DEFAULT_PROCESS_TIMEOUT_MS;
+      const processTimeoutMs = readProcessTimeout(params as Record<string, unknown>, DEFAULT_PROCESS_TIMEOUT_MS);
 
       let languages = "(managed config missing; run tree_sitter_grammar_install first)";
       let dumpCommand: string | undefined;

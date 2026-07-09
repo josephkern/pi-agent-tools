@@ -79,6 +79,14 @@ async function waitForExit(pid, timeoutMs) {
   }
 }
 
+test("quoteForCmdShell quotes only values cmd.exe would misparse", async () => {
+  const { quoteForCmdShell } = await import(`../src/process.ts?quote-test=${Date.now()}`);
+  assert.equal(quoteForCmdShell("C:\\tools\\npm.cmd"), "C:\\tools\\npm.cmd");
+  assert.equal(quoteForCmdShell("tree-sitter-python"), "tree-sitter-python");
+  assert.equal(quoteForCmdShell("C:\\Program Files\\npm.cmd"), '"C:\\Program Files\\npm.cmd"');
+  assert.equal(quoteForCmdShell('say "hi" & del'), '"say ""hi"" & del"');
+});
+
 test("timeout escalates to SIGKILL and signals the whole process group", { timeout: 15_000 }, async () => {
   const pidFile = join(testRoot, "grandchild.pid");
   process.env.GRANDCHILD_PID_FILE = pidFile;

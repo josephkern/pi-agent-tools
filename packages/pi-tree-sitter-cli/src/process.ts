@@ -22,6 +22,13 @@ interface CommandExecResult {
   outputCapped: boolean;
 }
 
+export function quoteForCmdShell(value: string): string {
+  if (/^[\w.:\\/-]+$/.test(value)) return value;
+  // cmd.exe still expands %VAR% inside double quotes; validated tool params
+  // cannot start with "-" and npm specs/paths do not legitimately contain %.
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 function commandHasPathSeparator(command: string): boolean {
   return isAbsolute(command) || command.includes("/") || command.includes("\\");
 }
@@ -105,12 +112,19 @@ async function execCommand(
     // On POSIX the child leads its own process group so timeouts and output
     // caps can signal the whole tree (npm and tree-sitter spawn children).
     const useProcessGroup = process.platform !== "win32";
-    const proc = spawn(command, args, {
-      env: { ...process.env, ...env },
-      shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: useProcessGroup,
-    });
+    // Node >= 20.12 refuses to spawn .cmd/.bat directly (CVE-2024-27980);
+    // route those through cmd.exe with explicit quoting.
+    const useCmdShell = process.platform === "win32" && /\.(cmd|bat)$/i.test(command);
+    const proc = spawn(
+      useCmdShell ? quoteForCmdShell(command) : command,
+      useCmdShell ? args.map(quoteForCmdShell) : args,
+      {
+        env: { ...process.env, ...env },
+        shell: useCmdShell,
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: useProcessGroup,
+      },
+    );
 
     let stdout = "";
     let stderr = "";
