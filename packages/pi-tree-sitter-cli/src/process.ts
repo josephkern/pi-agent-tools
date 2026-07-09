@@ -4,13 +4,14 @@ import { access, mkdir } from "node:fs/promises";
 import { delimiter, isAbsolute, join } from "node:path";
 import {
   DEFAULT_PROCESS_TIMEOUT_MS,
+  MAX_OUTPUT_BUFFER_BYTES,
   MISSING_NPM,
   MISSING_TREE_SITTER_CLI,
   NPM_BIN,
   TREE_SITTER_BIN,
 } from "./constants.ts";
 import { managedRoot } from "./managed-grammar-cache.ts";
-import { stripAnsi } from "./output.ts";
+import { formatSize, stripAnsi } from "./output.ts";
 import type { TreeSitterRunOptions, TreeSitterRunResult } from "./types.ts";
 
 interface CommandExecResult {
@@ -18,6 +19,7 @@ interface CommandExecResult {
   stderr: string;
   code: number;
   killed: boolean;
+  outputCapped: boolean;
 }
 
 function commandHasPathSeparator(command: string): boolean {
@@ -60,6 +62,16 @@ async function resolveExecutable(command: string, missingMessage: string, envNam
   throw new Error(missingMessage);
 }
 
+function collectOutput(result: CommandExecResult, name: string): string {
+  let output = stripAnsi([result.stdout, result.stderr].filter(Boolean).join("\n").trim());
+  if (result.outputCapped) {
+    output += `${output ? "\n\n" : ""}[Output exceeded ${formatSize(
+      MAX_OUTPUT_BUFFER_BYTES,
+    )}; the ${name} process was terminated and remaining output was discarded.]`;
+  }
+  return output;
+}
+
 async function resolveTreeSitterBin(): Promise<string> {
   return resolveExecutable(TREE_SITTER_BIN, MISSING_TREE_SITTER_CLI, "TREE_SITTER_BIN");
 }
@@ -76,15 +88,22 @@ async function execCommand(
   env: NodeJS.ProcessEnv = {},
 ): Promise<CommandExecResult> {
   return new Promise((resolve, reject) => {
+    // On POSIX the child leads its own process group so timeouts and output
+    // caps can signal the whole tree (npm and tree-sitter spawn children).
+    const useProcessGroup = process.platform !== "win32";
     const proc = spawn(command, args, {
       env: { ...process.env, ...env },
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
+      detached: useProcessGroup,
     });
 
     let stdout = "";
     let stderr = "";
+    let outputBytes = 0;
+    let outputCapped = false;
     let killed = false;
+    let terminated = false;
     let settled = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let forceKillTimeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -97,13 +116,30 @@ async function execCommand(
       proc.removeListener("close", onClose);
     };
 
-    const kill = () => {
-      if (killed) return;
-      killed = true;
-      proc.kill("SIGTERM");
+    const signalProc = (sig: NodeJS.Signals) => {
+      if (useProcessGroup && proc.pid) {
+        try {
+          process.kill(-proc.pid, sig);
+          return;
+        } catch {
+          // Group already gone; fall through to the direct child.
+        }
+      }
+      proc.kill(sig);
+    };
+
+    const terminate = () => {
+      if (terminated) return;
+      terminated = true;
+      signalProc("SIGTERM");
       forceKillTimeoutId = setTimeout(() => {
-        if (!settled) proc.kill("SIGKILL");
+        if (!settled) signalProc("SIGKILL");
       }, 5_000);
+    };
+
+    const kill = () => {
+      killed = true;
+      terminate();
     };
 
     const onError = (error: Error) => {
@@ -117,15 +153,25 @@ async function execCommand(
       if (settled) return;
       settled = true;
       cleanup();
-      resolve({ stdout, stderr, code: code ?? 0, killed });
+      resolve({ stdout, stderr, code: code ?? 0, killed, outputCapped });
     };
 
-    proc.stdout?.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    proc.stderr?.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
+    const appendChunk = (chunk: Buffer, append: (text: string) => void) => {
+      if (outputCapped) return;
+      outputBytes += chunk.length;
+      append(chunk.toString());
+      if (outputBytes > MAX_OUTPUT_BUFFER_BYTES) {
+        outputCapped = true;
+        terminate();
+      }
+    };
+
+    proc.stdout?.on("data", (chunk) => appendChunk(chunk, (text) => {
+      stdout += text;
+    }));
+    proc.stderr?.on("data", (chunk) => appendChunk(chunk, (text) => {
+      stderr += text;
+    }));
     proc.once("error", onError);
     proc.once("close", onClose);
 
@@ -148,11 +194,12 @@ export async function runTreeSitter(
     XDG_CACHE_HOME: cacheRoot,
   });
 
-  const output = stripAnsi([result.stdout, result.stderr].filter(Boolean).join("\n").trim());
   if (result.killed) {
     throw new Error(`tree-sitter ${args.join(" ")} timed out or was cancelled.`);
   }
-  if (options.throwOnNonZero !== false && result.code !== 0) {
+
+  const output = collectOutput(result, "tree-sitter");
+  if (options.throwOnNonZero !== false && result.code !== 0 && !result.outputCapped) {
     throw new Error(
       `tree-sitter ${args.join(" ")} failed with code ${result.code}: ${output || "no output"}`,
     );
@@ -171,9 +218,9 @@ export async function runNpm(
   const result = await execCommand(command, args, signal, processTimeoutMs, {
     npm_config_cache: join(managedRoot(), "npm-cache"),
   });
-  const output = stripAnsi([result.stdout, result.stderr].filter(Boolean).join("\n").trim());
   if (result.killed) throw new Error(`npm ${args.join(" ")} timed out or was cancelled.`);
-  if (result.code !== 0) {
+  const output = collectOutput(result, "npm");
+  if (result.code !== 0 && !result.outputCapped) {
     throw new Error(`npm ${args.join(" ")} failed with code ${result.code}: ${output || "no output"}`);
   }
   return { command, args, output, code: result.code };

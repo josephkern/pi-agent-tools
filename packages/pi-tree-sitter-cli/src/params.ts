@@ -67,8 +67,17 @@ export function addConfigArg(args: string[], params: Record<string, unknown>): v
   if (configPath) args.push("--config-path", configPath);
 }
 
+export function assertNotOptionLike(value: string, key: string): void {
+  if (value.startsWith("-")) {
+    throw new Error(
+      `${key} entries must not start with "-" (${JSON.stringify(value)} would be parsed as a CLI flag); prefix such file names with ./`,
+    );
+  }
+}
+
 export function readPathInputs(params: Record<string, unknown>, toolName: string): { paths: string[]; pathsFile?: string } {
   const paths = readStringArray(params, "paths");
+  for (const path of paths) assertNotOptionLike(path, "paths");
   const pathsFile = readString(params, "pathsFile");
   if (paths.length === 0 && !pathsFile) {
     throw new Error(

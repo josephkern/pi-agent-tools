@@ -8,6 +8,7 @@ import { managedRoot } from "./managed-grammar-cache.ts";
 import {
   addCommonCliArgs,
   addConfigArg,
+  assertNotOptionLike,
   readBoolean,
   readPathInputs,
   readPositiveInteger,
@@ -96,6 +97,7 @@ export function buildTagsArgs(params: Record<string, unknown>): CliArgsResult {
 function readInstallPackages(params: Record<string, unknown>): string[] {
   const packages = readStringArray(params, "packages");
   if (packages.length === 0) throw new Error("tree_sitter_grammar_install requires at least one package.");
+  for (const pkg of packages) assertNotOptionLike(pkg, "packages");
   return packages;
 }
 

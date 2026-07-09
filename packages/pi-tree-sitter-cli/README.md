@@ -48,6 +48,8 @@ At runtime, pi provides the pi extension peer packages used by this package: `@e
 
 If the executable is missing, tools fail with installation/configuration guidance instead of silently falling back or attempting auto-installation.
 
+Child processes are capped: runs are killed (process group and all) on timeout, and a run that produces more than 2MB of output is terminated with the captured prefix returned. Positional arguments (`paths`, `packages`, `queryFile`) must not start with `-`; prefix such file names with `./`.
+
 Optional grammar acquisition is explicit: `tree_sitter_grammar_install` installs npm grammar packages into a tool-local cache and writes a tool-local Tree-sitter config. It does not mutate your global Tree-sitter config. Tree-sitter and npm cache paths are also kept under the tool-local cache when these tools execute.
 
 ## Grammar installation options
@@ -100,7 +102,7 @@ Implemented:
 - `tree_sitter_grammar_status` — inspects the tool-local grammar cache
 - `tree_sitter_grammar_install` — explicitly installs npm grammar packages into the tool-local cache
 
-The minimal Tree-sitter CLI plan from `../../PLAN.md` is implemented, plus optional tool-local npm grammar management.
+The minimal Tree-sitter CLI plan from [`PLAN.md`](./PLAN.md) is implemented, plus optional tool-local npm grammar management.
 
 ## Query recipes
 

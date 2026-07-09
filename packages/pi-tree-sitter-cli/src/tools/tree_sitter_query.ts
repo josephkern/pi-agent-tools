@@ -13,7 +13,7 @@ import {
   formatSize,
   truncateToolOutput,
 } from "../output.ts";
-import { readString } from "../params.ts";
+import { assertNotOptionLike, readString } from "../params.ts";
 import { QueryParams } from "../schemas.ts";
 
 interface QuerySource {
@@ -47,11 +47,13 @@ function compactQueryOutput(output: string): string {
     );
     if (!capture || !currentFile) continue;
 
-    const [, name, rowText, columnText, , , firstTextPart] = capture;
+    const [, name, rowText, columnText, endRowText, , firstTextPart] = capture;
+    // The record's coordinates say exactly how many lines the text spans, so
+    // consume that many; backticks inside the captured text are not delimiters.
+    const continuationLines = Math.max(0, Number(endRowText) - Number(rowText));
     const textParts = [firstTextPart ?? ""];
-    while (textParts[textParts.length - 1] !== undefined && !textParts[textParts.length - 1].endsWith("`")) {
+    for (let extra = 0; extra < continuationLines && index + 1 < lines.length; extra += 1) {
       index += 1;
-      if (index >= lines.length) break;
       textParts.push(lines[index] ?? "");
     }
 
@@ -76,6 +78,7 @@ async function prepareQuerySource(params: Record<string, unknown>): Promise<Quer
   }
 
   if (queryFile) {
+    assertNotOptionLike(queryFile, "queryFile");
     return { queryPath: queryFile, inline: false, async cleanup() {} };
   }
 

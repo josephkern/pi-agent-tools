@@ -26,7 +26,6 @@ export function registerGrammarInstallTool(pi: ExtensionAPI, ctx: ToolContext): 
       const configPath = await ctx.writeManagedConfig();
       const { args, processTimeoutMs } = buildGrammarInstallArgs(params as Record<string, unknown>);
       const installResult = await ctx.runNpm(args, signal, processTimeoutMs);
-      await ctx.writeManagedConfig();
 
       let languages = "(language discovery skipped)";
       let dumpCommand: string | undefined;

@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const originalTreeSitterBin = process.env.TREE_SITTER_BIN;
 const originalManagedHome = process.env.PI_TREE_SITTER_CLI_HOME;
+const originalGrandchildPidFile = process.env.GRANDCHILD_PID_FILE;
 
 let testRoot;
 let runTreeSitter;
@@ -13,12 +14,29 @@ let runTreeSitter;
 before(async () => {
   testRoot = await mkdtemp(join(tmpdir(), "pi-tree-sitter-cli-process-test-"));
 
-  const treeSitterBin = join(testRoot, "tree-sitter-stubborn.mjs");
+  const treeSitterBin = join(testRoot, "tree-sitter-fake.mjs");
   await writeFile(
     treeSitterBin,
-    `#!/usr/bin/env node
-process.on("SIGTERM", () => {});
-setInterval(() => {}, 1000);
+    String.raw`#!/usr/bin/env node
+import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
+
+const args = process.argv.slice(2);
+
+if (args.includes("stubborn.ts")) {
+  // Ignore SIGTERM and keep a grandchild running to exercise group signaling.
+  process.on("SIGTERM", () => {});
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  writeFileSync(process.env.GRANDCHILD_PID_FILE, String(child.pid));
+  setInterval(() => {}, 1000);
+} else if (args.includes("spew.ts")) {
+  // Emit output forever; only the wrapper's output cap can stop this.
+  const chunk = "x".repeat(64 * 1024);
+  setInterval(() => process.stdout.write(chunk), 1);
+} else {
+  console.error("unexpected tree-sitter invocation: " + args.join(" "));
+  process.exit(64);
+}
 `,
     "utf8",
   );
@@ -31,16 +49,50 @@ setInterval(() => {}, 1000);
 });
 
 after(async () => {
-  if (originalTreeSitterBin === undefined) delete process.env.TREE_SITTER_BIN;
-  else process.env.TREE_SITTER_BIN = originalTreeSitterBin;
-  if (originalManagedHome === undefined) delete process.env.PI_TREE_SITTER_CLI_HOME;
-  else process.env.PI_TREE_SITTER_CLI_HOME = originalManagedHome;
+  restoreEnv("TREE_SITTER_BIN", originalTreeSitterBin);
+  restoreEnv("PI_TREE_SITTER_CLI_HOME", originalManagedHome);
+  restoreEnv("GRANDCHILD_PID_FILE", originalGrandchildPidFile);
   if (testRoot) await rm(testRoot, { recursive: true, force: true });
 });
 
-test("timeout escalates to SIGKILL when the process ignores SIGTERM", { timeout: 15_000 }, async () => {
+function restoreEnv(name, value) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}
+
+async function waitForExit(pid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return true;
+    }
+    if (Date.now() > deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+test("timeout escalates to SIGKILL and signals the whole process group", { timeout: 15_000 }, async () => {
+  const pidFile = join(testRoot, "grandchild.pid");
+  process.env.GRANDCHILD_PID_FILE = pidFile;
+
   await assert.rejects(
-    runTreeSitter(["parse", "fixture.ts"], undefined, { processTimeoutMs: 250 }),
+    runTreeSitter(["parse", "stubborn.ts"], undefined, { processTimeoutMs: 500 }),
     /timed out or was cancelled/,
+  );
+
+  const grandchildPid = Number(await readFile(pidFile, "utf8"));
+  assert.ok(Number.isInteger(grandchildPid) && grandchildPid > 0, "grandchild pid should be recorded");
+  assert.ok(await waitForExit(grandchildPid, 3_000), "grandchild should be killed with the process group");
+});
+
+test("terminates the process and keeps a capped prefix when output exceeds the buffer cap", { timeout: 20_000 }, async () => {
+  const result = await runTreeSitter(["parse", "spew.ts"], undefined, { processTimeoutMs: 15_000 });
+
+  assert.match(result.output, /\[Output exceeded 2\.0MB; the tree-sitter process was terminated/);
+  assert.ok(
+    Buffer.byteLength(result.output, "utf8") < 4 * 1024 * 1024,
+    "captured output should stay near the cap",
   );
 });

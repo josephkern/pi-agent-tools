@@ -41,6 +41,19 @@ if (command === "parse") {
 }
 
 if (command === "query") {
+  if (args.includes("backtick-fixture.ts")) {
+    // Mirror real output for captured text containing template literals: an
+    // interior line ends with a backtick and another starts at column 0.
+    const tick = String.fromCharCode(96);
+    console.log('backtick-fixture.ts');
+    console.log('    pattern:  0, capture: 0 - body, start: (0, 38), end: (4, 1), text: ' + tick + '{');
+    console.log('  const s = ' + tick);
+    console.log('hello ' + '$' + '{name}' + tick + ';');
+    console.log('  return s;');
+    console.log('}' + tick);
+    console.log('    pattern:  0, capture: 0 - body, start: (6, 0), end: (6, 10), text: ' + tick + '{ done(); }' + tick);
+    process.exit(0);
+  }
   if (args.includes("compact-fixture.ts")) {
     // Mirror real tree-sitter query --captures output: a file header followed by indented capture rows.
     const tick = String.fromCharCode(96);
@@ -160,6 +173,33 @@ test("tools reject invalid parameter combinations before spawning", async () => 
   );
 });
 
+test("tools reject option-like positional values before spawning", async () => {
+  await assert.rejects(
+    () => registeredTool("tree_sitter_parse").execute("test-call", { paths: ["--stat"] }, undefined),
+    /paths entries must not start with "-"/,
+  );
+
+  await assert.rejects(
+    () =>
+      registeredTool("tree_sitter_query").execute(
+        "test-call",
+        { queryFile: "--fake-flag.scm", paths: ["fixture.ts"] },
+        undefined,
+      ),
+    /queryFile entries must not start with "-"/,
+  );
+
+  await assert.rejects(
+    () =>
+      registeredTool("tree_sitter_grammar_install").execute(
+        "test-call",
+        { packages: ["--registry=https://evil.example"] },
+        undefined,
+      ),
+    /packages entries must not start with "-"/,
+  );
+});
+
 test("query tool supports inline queries and range arguments", async () => {
   const result = await registeredTool("tree_sitter_query").execute(
     "test-call",
@@ -201,6 +241,26 @@ test("query tool supports compact capture output", async () => {
   assert.doesNotMatch(result.content[0].text, /pattern:/);
 });
 
+test("query tool compact output handles backticks inside multi-line captures", async () => {
+  const result = await registeredTool("tree_sitter_query").execute(
+    "test-call",
+    {
+      query: "(function_declaration body: (statement_block) @body)",
+      paths: ["backtick-fixture.ts"],
+      captures: true,
+      compact: true,
+      processTimeoutMs: 1_000,
+    },
+    undefined,
+  );
+
+  const text = result.content[0].text;
+  assert.match(text, /backtick-fixture\.ts:1:39 body \{const s = /);
+  assert.match(text, /backtick-fixture\.ts:7:1 body \{done\(\);\}/);
+  // The column-0 text line must not be mistaken for a file header.
+  assert.doesNotMatch(text, /^hello /m);
+});
+
 test("tags tool supports compact output", async () => {
   const result = await registeredTool("tree_sitter_tags").execute(
     "test-call",
@@ -211,6 +271,20 @@ test("tags tool supports compact output", async () => {
   assert.equal(result.details.compact, true);
   assert.match(result.content[0].text, /fixture\.ts:1:1 function\.def fake/);
   assert.doesNotMatch(result.content[0].text, /\| function\s+def/);
+});
+
+test("tags tool compact output resolves the file name from a single-entry pathsFile", async () => {
+  const pathsFile = join(testRoot, "tags-paths.txt");
+  await writeFile(pathsFile, "listed-fixture.ts\n", "utf8");
+
+  const result = await registeredTool("tree_sitter_tags").execute(
+    "test-call",
+    { pathsFile, compact: true, processTimeoutMs: 1_000 },
+    undefined,
+  );
+
+  assert.equal(result.details.compact, true);
+  assert.match(result.content[0].text, /listed-fixture\.ts:1:1 function\.def fake/);
 });
 
 test("tags tool supports compact output with file headers", async () => {

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { buildTagsArgs } from "../cli-args.ts";
 import type { ToolContext } from "../context.ts";
@@ -51,12 +52,33 @@ function hasGlobPattern(path: string): boolean {
   return /[*?[\]{}]/.test(path);
 }
 
-function defaultTagFile(params: Record<string, unknown>): string | undefined {
-  const paths = params.paths;
-  if (!Array.isArray(paths) || paths.length !== 1) return undefined;
-  const [path] = paths;
-  if (typeof path !== "string" || hasGlobPattern(path)) return undefined;
-  return path;
+// Tree-sitter omits the file header when tagging a single file, so compact
+// output needs the file name from the params: either the one `paths` entry or
+// the sole entry of `pathsFile`.
+async function defaultTagFile(params: Record<string, unknown>): Promise<string | undefined> {
+  const paths = Array.isArray(params.paths) ? params.paths : [];
+  const pathsFile = typeof params.pathsFile === "string" ? params.pathsFile : undefined;
+
+  if (paths.length === 1 && !pathsFile) {
+    const [path] = paths;
+    if (typeof path !== "string" || hasGlobPattern(path)) return undefined;
+    return path;
+  }
+
+  if (paths.length === 0 && pathsFile) {
+    let entries: string[];
+    try {
+      entries = (await readFile(pathsFile, "utf8"))
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+    } catch {
+      return undefined;
+    }
+    if (entries.length === 1 && !hasGlobPattern(entries[0])) return entries[0];
+  }
+
+  return undefined;
 }
 
 export function registerTagsTool(pi: ExtensionAPI, ctx: ToolContext): void {
@@ -85,7 +107,7 @@ export function registerTagsTool(pi: ExtensionAPI, ctx: ToolContext): void {
 
       const compact = rawParams.compact === true;
       const text = compact && result.code === 0
-        ? compactTagsOutput(result.output, defaultTagFile(rawParams))
+        ? compactTagsOutput(result.output, await defaultTagFile(rawParams))
         : result.output || "(no tags returned)";
       const truncation = truncateToolOutput(text);
       const exitNotice =
