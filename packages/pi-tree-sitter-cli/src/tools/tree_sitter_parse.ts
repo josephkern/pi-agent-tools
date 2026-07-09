@@ -7,6 +7,7 @@ import {
   formatInvocation,
   formatResultText,
   formatSize,
+  outputCappedNotice,
   truncateToolOutput,
 } from "../output.ts";
 import { ParseParams } from "../schemas.ts";
@@ -44,13 +45,20 @@ export function registerParseTool(pi: ExtensionAPI, ctx: ToolContext): void {
         content: [
           {
             type: "text" as const,
-            text: formatResultText("Tree-sitter parse", result, truncation.content, truncation, exitNotice),
+            text: formatResultText(
+              "Tree-sitter parse",
+              result,
+              truncation.content,
+              truncation,
+              `${outputCappedNotice(result)}${exitNotice}`,
+            ),
           },
         ],
         details: {
           command: formatInvocation(result.command, result.args),
           args: result.args,
           exitCode: result.code,
+          outputCapped: result.outputCapped,
           truncation,
         },
       };

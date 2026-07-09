@@ -62,14 +62,28 @@ async function resolveExecutable(command: string, missingMessage: string, envNam
   throw new Error(missingMessage);
 }
 
-function collectOutput(result: CommandExecResult, name: string): string {
-  let output = stripAnsi([result.stdout, result.stderr].filter(Boolean).join("\n").trim());
-  if (result.outputCapped) {
-    output += `${output ? "\n\n" : ""}[Output exceeded ${formatSize(
-      MAX_OUTPUT_BUFFER_BYTES,
-    )}; the ${name} process was terminated and remaining output was discarded.]`;
-  }
-  return output;
+// Process groups still alive when this process exits get a best-effort
+// SIGKILL so detached children cannot outlive the harness.
+const liveProcessGroups = new Set<number>();
+let exitSweepRegistered = false;
+
+function registerProcessGroup(pid: number): void {
+  liveProcessGroups.add(pid);
+  if (exitSweepRegistered) return;
+  exitSweepRegistered = true;
+  process.on("exit", () => {
+    for (const groupPid of liveProcessGroups) {
+      try {
+        process.kill(-groupPid, "SIGKILL");
+      } catch {
+        // Group already gone.
+      }
+    }
+  });
+}
+
+function collectOutput(result: CommandExecResult): string {
+  return stripAnsi([result.stdout, result.stderr].filter(Boolean).join("\n").trim());
 }
 
 async function resolveTreeSitterBin(): Promise<string> {
@@ -110,7 +124,7 @@ async function execCommand(
 
     const cleanup = () => {
       if (timeoutId) clearTimeout(timeoutId);
-      if (forceKillTimeoutId) clearTimeout(forceKillTimeoutId);
+      // forceKillTimeoutId is deliberately not cleared; see terminate().
       signal?.removeEventListener("abort", kill);
       proc.removeListener("error", onError);
       proc.removeListener("close", onClose);
@@ -132,13 +146,16 @@ async function execCommand(
       if (terminated) return;
       terminated = true;
       signalProc("SIGTERM");
-      forceKillTimeoutId = setTimeout(() => {
-        if (!settled) signalProc("SIGKILL");
-      }, 5_000);
+      // Fire even after the direct child closes: a grandchild in the group
+      // may have trapped SIGTERM and must still be swept.
+      forceKillTimeoutId = setTimeout(() => signalProc("SIGKILL"), 5_000);
+      forceKillTimeoutId.unref?.();
     };
 
     const kill = () => {
-      killed = true;
+      // If the output cap already terminated the process, keep the capped
+      // result instead of reclassifying the run as timed out or cancelled.
+      if (!terminated) killed = true;
       terminate();
     };
 
@@ -153,6 +170,7 @@ async function execCommand(
       if (settled) return;
       settled = true;
       cleanup();
+      if (proc.pid) liveProcessGroups.delete(proc.pid);
       resolve({ stdout, stderr, code: code ?? 0, killed, outputCapped });
     };
 
@@ -174,6 +192,8 @@ async function execCommand(
     }));
     proc.once("error", onError);
     proc.once("close", onClose);
+
+    if (useProcessGroup && proc.pid) registerProcessGroup(proc.pid);
 
     if (signal?.aborted) kill();
     else signal?.addEventListener("abort", kill, { once: true });
@@ -198,14 +218,14 @@ export async function runTreeSitter(
     throw new Error(`tree-sitter ${args.join(" ")} timed out or was cancelled.`);
   }
 
-  const output = collectOutput(result, "tree-sitter");
+  const output = collectOutput(result);
   if (options.throwOnNonZero !== false && result.code !== 0 && !result.outputCapped) {
     throw new Error(
       `tree-sitter ${args.join(" ")} failed with code ${result.code}: ${output || "no output"}`,
     );
   }
 
-  return { command, args, output, code: result.code };
+  return { command, args, output, code: result.code, outputCapped: result.outputCapped };
 }
 
 export async function runNpm(
@@ -219,9 +239,19 @@ export async function runNpm(
     npm_config_cache: join(managedRoot(), "npm-cache"),
   });
   if (result.killed) throw new Error(`npm ${args.join(" ")} timed out or was cancelled.`);
-  const output = collectOutput(result, "npm");
-  if (result.code !== 0 && !result.outputCapped) {
+  if (result.outputCapped) {
+    // A capped npm run was terminated mid-operation; unlike read-only
+    // tree-sitter output there is no useful partial result, only a
+    // partially-mutated cache, so treat it as a failure.
+    throw new Error(
+      `npm ${args.join(" ")} produced more than ${formatSize(
+        MAX_OUTPUT_BUFFER_BYTES,
+      )} of output and was terminated; treat the operation as failed and retry if appropriate.`,
+    );
+  }
+  const output = collectOutput(result);
+  if (result.code !== 0) {
     throw new Error(`npm ${args.join(" ")} failed with code ${result.code}: ${output || "no output"}`);
   }
-  return { command, args, output, code: result.code };
+  return { command, args, output, code: result.code, outputCapped: false };
 }

@@ -3,6 +3,7 @@ import { after, before, test } from "node:test";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { restoreEnv } from "./helpers.mjs";
 
 const originalTreeSitterBin = process.env.TREE_SITTER_BIN;
 const originalNpmBin = process.env.NPM_BIN;
@@ -116,11 +117,6 @@ after(async () => {
   if (testRoot) await rm(testRoot, { recursive: true, force: true });
 });
 
-function restoreEnv(name, value) {
-  if (value === undefined) delete process.env[name];
-  else process.env[name] = value;
-}
-
 function registeredTool(name) {
   const tool = tools.get(name);
   assert.ok(tool, `expected tool to be registered: ${name}`);
@@ -150,7 +146,7 @@ test("parse tool builds CLI arguments and formats output", async () => {
     undefined,
   );
 
-  assert.deepEqual(result.details.args, ["parse", "--json-summary", "--no-ranges", "fixture.ts"]);
+  assert.deepEqual(result.details.args, ["parse", "--json-summary", "--no-ranges", "--", "fixture.ts"]);
   assert.equal(result.details.exitCode, 0);
   assert.match(result.content[0].text, /## Tree-sitter parse/);
   assert.match(result.content[0].text, /"source_count": 1/);
@@ -173,22 +169,25 @@ test("tools reject invalid parameter combinations before spawning", async () => 
   );
 });
 
-test("tools reject option-like positional values before spawning", async () => {
-  await assert.rejects(
-    () => registeredTool("tree_sitter_parse").execute("test-call", { paths: ["--stat"] }, undefined),
-    /paths entries must not start with "-"/,
+test("option-like positional values are passed after -- instead of as flags", async () => {
+  const parseResult = await registeredTool("tree_sitter_parse").execute(
+    "test-call",
+    { paths: ["--stat"], processTimeoutMs: 1_000 },
+    undefined,
   );
+  assert.deepEqual(parseResult.details.args, ["parse", "--cst", "--", "--stat"]);
 
-  await assert.rejects(
-    () =>
-      registeredTool("tree_sitter_query").execute(
-        "test-call",
-        { queryFile: "--fake-flag.scm", paths: ["fixture.ts"] },
-        undefined,
-      ),
-    /queryFile entries must not start with "-"/,
+  const queryResult = await registeredTool("tree_sitter_query").execute(
+    "test-call",
+    { queryFile: "--fake-flag.scm", paths: ["fixture.ts"], processTimeoutMs: 1_000 },
+    undefined,
   );
+  const separator = queryResult.details.args.indexOf("--");
+  assert.notEqual(separator, -1);
+  assert.deepEqual(queryResult.details.args.slice(separator), ["--", "--fake-flag.scm", "fixture.ts"]);
+});
 
+test("grammar install rejects option-like package specs before spawning", async () => {
   await assert.rejects(
     () =>
       registeredTool("tree_sitter_grammar_install").execute(
@@ -285,6 +284,19 @@ test("tags tool compact output resolves the file name from a single-entry pathsF
 
   assert.equal(result.details.compact, true);
   assert.match(result.content[0].text, /listed-fixture\.ts:1:1 function\.def fake/);
+});
+
+test("tags tool compact output keeps the paths entry as default file when pathsFile is also given", async () => {
+  const pathsFile = join(testRoot, "extra-tags-paths.txt");
+  await writeFile(pathsFile, "", "utf8");
+
+  const result = await registeredTool("tree_sitter_tags").execute(
+    "test-call",
+    { paths: ["fixture.ts"], pathsFile, compact: true, processTimeoutMs: 1_000 },
+    undefined,
+  );
+
+  assert.match(result.content[0].text, /fixture\.ts:1:1 function\.def fake/);
 });
 
 test("tags tool supports compact output with file headers", async () => {

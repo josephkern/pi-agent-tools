@@ -4,6 +4,7 @@ import {
   formatSize,
   truncateHead,
 } from "@earendil-works/pi-coding-agent";
+import { MAX_OUTPUT_BUFFER_BYTES } from "./constants.ts";
 import type { TreeSitterRunResult } from "./types.ts";
 
 export { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize };
@@ -26,6 +27,13 @@ export function truncationNotice(truncation: ToolTruncation): string {
   )} of ${formatSize(truncation.totalBytes)}). Omitted ${omittedLines} lines (${formatSize(
     omittedBytes,
   )}).]`;
+}
+
+export function outputCappedNotice(result: TreeSitterRunResult): string {
+  if (!result.outputCapped) return "";
+  return `\n\n[Raw output exceeded ${formatSize(
+    MAX_OUTPUT_BUFFER_BYTES,
+  )}; the process was terminated and remaining output was discarded. Results above are INCOMPLETE — narrow the request (fewer paths, a row range, or a more specific query) and retry.]`;
 }
 
 export function stripAnsi(text: string): string {

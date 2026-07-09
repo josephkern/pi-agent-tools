@@ -3,6 +3,7 @@ import { after, before, test } from "node:test";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { restoreEnv } from "./helpers.mjs";
 
 const originalTreeSitterBin = process.env.TREE_SITTER_BIN;
 const originalManagedHome = process.env.PI_TREE_SITTER_CLI_HOME;
@@ -27,6 +28,16 @@ if (args.includes("stubborn.ts")) {
   // Ignore SIGTERM and keep a grandchild running to exercise group signaling.
   process.on("SIGTERM", () => {});
   const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  writeFileSync(process.env.GRANDCHILD_PID_FILE, String(child.pid));
+  setInterval(() => {}, 1000);
+} else if (args.includes("leaky.ts")) {
+  // Die on SIGTERM ourselves, but leave behind a grandchild that traps it;
+  // only the post-close SIGKILL group sweep can reap it.
+  const child = spawn(
+    process.execPath,
+    ["-e", "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"],
+    { stdio: "ignore" },
+  );
   writeFileSync(process.env.GRANDCHILD_PID_FILE, String(child.pid));
   setInterval(() => {}, 1000);
 } else if (args.includes("spew.ts")) {
@@ -55,11 +66,6 @@ after(async () => {
   if (testRoot) await rm(testRoot, { recursive: true, force: true });
 });
 
-function restoreEnv(name, value) {
-  if (value === undefined) delete process.env[name];
-  else process.env[name] = value;
-}
-
 async function waitForExit(pid, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
@@ -87,12 +93,27 @@ test("timeout escalates to SIGKILL and signals the whole process group", { timeo
   assert.ok(await waitForExit(grandchildPid, 3_000), "grandchild should be killed with the process group");
 });
 
+test("a grandchild that traps SIGTERM is swept by the post-close SIGKILL escalation", { timeout: 15_000 }, async () => {
+  const pidFile = join(testRoot, "leaky-grandchild.pid");
+  process.env.GRANDCHILD_PID_FILE = pidFile;
+
+  await assert.rejects(
+    runTreeSitter(["parse", "leaky.ts"], undefined, { processTimeoutMs: 500 }),
+    /timed out or was cancelled/,
+  );
+
+  const grandchildPid = Number(await readFile(pidFile, "utf8"));
+  assert.ok(Number.isInteger(grandchildPid) && grandchildPid > 0, "grandchild pid should be recorded");
+  // The direct child dies to SIGTERM immediately; the trapping grandchild
+  // must still be gone once the 5s SIGKILL group sweep has fired.
+  assert.ok(await waitForExit(grandchildPid, 8_000), "grandchild should be SIGKILLed after close");
+});
+
 test("terminates the process and keeps a capped prefix when output exceeds the buffer cap", { timeout: 20_000 }, async () => {
   const result = await runTreeSitter(["parse", "spew.ts"], undefined, { processTimeoutMs: 15_000 });
 
-  assert.match(result.output, /\[Output exceeded 2\.0MB; the tree-sitter process was terminated/);
-  assert.ok(
-    Buffer.byteLength(result.output, "utf8") < 4 * 1024 * 1024,
-    "captured output should stay near the cap",
-  );
+  assert.equal(result.outputCapped, true);
+  assert.doesNotMatch(result.output, /Output exceeded/);
+  const bytes = Buffer.byteLength(result.output, "utf8");
+  assert.ok(bytes > 1024 * 1024 && bytes < 4 * 1024 * 1024, "captured output should stay near the cap");
 });

@@ -51,7 +51,7 @@ export function buildParseArgs(params: Record<string, unknown>): CliArgsResult {
   if (params.time === true) args.push("--time");
   if (params.noRanges === true) args.push("--no-ranges");
   if (pathsFile) args.push("--paths", pathsFile);
-  args.push(...paths);
+  if (paths.length > 0) args.push("--", ...paths);
 
   return { args, processTimeoutMs };
 }
@@ -77,7 +77,7 @@ export function buildQueryArgs(
   if (containingRowRange) args.push("--containing-row-range", containingRowRange);
 
   if (pathsFile) args.push("--paths", pathsFile);
-  args.push(queryPath, ...paths);
+  args.push("--", queryPath, ...paths);
 
   return { args, processTimeoutMs };
 }
@@ -89,7 +89,7 @@ export function buildTagsArgs(params: Record<string, unknown>): CliArgsResult {
 
   if (params.time === true) args.push("--time");
   if (pathsFile) args.push("--paths", pathsFile);
-  args.push(...paths);
+  if (paths.length > 0) args.push("--", ...paths);
 
   return { args, processTimeoutMs };
 }

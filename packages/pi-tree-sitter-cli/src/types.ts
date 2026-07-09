@@ -8,4 +8,5 @@ export interface TreeSitterRunResult {
   args: string[];
   output: string;
   code: number;
+  outputCapped: boolean;
 }

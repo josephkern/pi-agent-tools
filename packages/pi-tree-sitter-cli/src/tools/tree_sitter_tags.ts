@@ -8,6 +8,7 @@ import {
   formatInvocation,
   formatResultText,
   formatSize,
+  outputCappedNotice,
   truncateToolOutput,
 } from "../output.ts";
 import { TagsParams } from "../schemas.ts";
@@ -54,12 +55,14 @@ function hasGlobPattern(path: string): boolean {
 
 // Tree-sitter omits the file header when tagging a single file, so compact
 // output needs the file name from the params: either the one `paths` entry or
-// the sole entry of `pathsFile`.
+// the sole entry of `pathsFile`. When the run actually covers multiple files,
+// headers are present and override this default, so a single `paths` entry is
+// a safe fallback even when `pathsFile` is also supplied.
 async function defaultTagFile(params: Record<string, unknown>): Promise<string | undefined> {
   const paths = Array.isArray(params.paths) ? params.paths : [];
   const pathsFile = typeof params.pathsFile === "string" ? params.pathsFile : undefined;
 
-  if (paths.length === 1 && !pathsFile) {
+  if (paths.length === 1) {
     const [path] = paths;
     if (typeof path !== "string" || hasGlobPattern(path)) return undefined;
     return path;
@@ -119,13 +122,20 @@ export function registerTagsTool(pi: ExtensionAPI, ctx: ToolContext): void {
         content: [
           {
             type: "text" as const,
-            text: formatResultText("Tree-sitter tags", result, truncation.content, truncation, exitNotice),
+            text: formatResultText(
+              "Tree-sitter tags",
+              result,
+              truncation.content,
+              truncation,
+              `${outputCappedNotice(result)}${exitNotice}`,
+            ),
           },
         ],
         details: {
           command: formatInvocation(result.command, result.args),
           args: result.args,
           exitCode: result.code,
+          outputCapped: result.outputCapped,
           compact,
           truncation,
         },

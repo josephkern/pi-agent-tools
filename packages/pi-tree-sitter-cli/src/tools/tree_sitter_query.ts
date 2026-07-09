@@ -11,9 +11,10 @@ import {
   formatInvocation,
   formatResultText,
   formatSize,
+  outputCappedNotice,
   truncateToolOutput,
 } from "../output.ts";
-import { assertNotOptionLike, readString } from "../params.ts";
+import { readString } from "../params.ts";
 import { QueryParams } from "../schemas.ts";
 
 interface QuerySource {
@@ -78,7 +79,6 @@ async function prepareQuerySource(params: Record<string, unknown>): Promise<Quer
   }
 
   if (queryFile) {
-    assertNotOptionLike(queryFile, "queryFile");
     return { queryPath: queryFile, inline: false, async cleanup() {} };
   }
 
@@ -148,7 +148,7 @@ export function registerQueryTool(pi: ExtensionAPI, ctx: ToolContext): void {
                 result,
                 truncation.content,
                 truncation,
-                exitNotice,
+                `${outputCappedNotice(result)}${exitNotice}`,
               ),
             },
           ],
@@ -156,6 +156,7 @@ export function registerQueryTool(pi: ExtensionAPI, ctx: ToolContext): void {
             command: formatInvocation(result.command, result.args),
             args: result.args,
             exitCode: result.code,
+            outputCapped: result.outputCapped,
             inlineQuery: querySource.inline,
             compact,
             truncation,

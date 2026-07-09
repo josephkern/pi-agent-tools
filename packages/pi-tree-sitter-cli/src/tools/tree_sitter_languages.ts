@@ -7,6 +7,7 @@ import {
   DEFAULT_MAX_LINES,
   formatInvocation,
   formatSize,
+  outputCappedNotice,
   truncateToolOutput,
   truncationNotice,
 } from "../output.ts";
@@ -29,10 +30,10 @@ export function registerLanguagesTool(pi: ExtensionAPI, ctx: ToolContext): void 
 
     async execute(_toolCallId, params, signal) {
       const { args, processTimeoutMs } = buildLanguagesArgs(params as Record<string, unknown>);
-      const { command, output } = await ctx.runTreeSitter(args, signal, { processTimeoutMs });
+      const result = await ctx.runTreeSitter(args, signal, { processTimeoutMs });
 
       const text =
-        output ||
+        result.output ||
         [
           "(no languages reported)",
           "",
@@ -45,12 +46,13 @@ export function registerLanguagesTool(pi: ExtensionAPI, ctx: ToolContext): void 
         content: [
           {
             type: "text" as const,
-            text: `## Tree-sitter languages\n\n${truncation.content}${truncationNotice(truncation)}`,
+            text: `## Tree-sitter languages\n\n${truncation.content}${truncationNotice(truncation)}${outputCappedNotice(result)}`,
           },
         ],
         details: {
-          command: formatInvocation(command, args),
+          command: formatInvocation(result.command, args),
           args,
+          outputCapped: result.outputCapped,
           truncation,
         },
       };
