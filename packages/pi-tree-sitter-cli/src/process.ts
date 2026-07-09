@@ -87,9 +87,11 @@ async function execCommand(
     let killed = false;
     let settled = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let forceKillTimeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const cleanup = () => {
       if (timeoutId) clearTimeout(timeoutId);
+      if (forceKillTimeoutId) clearTimeout(forceKillTimeoutId);
       signal?.removeEventListener("abort", kill);
       proc.removeListener("error", onError);
       proc.removeListener("close", onClose);
@@ -99,8 +101,8 @@ async function execCommand(
       if (killed) return;
       killed = true;
       proc.kill("SIGTERM");
-      setTimeout(() => {
-        if (!proc.killed) proc.kill("SIGKILL");
+      forceKillTimeoutId = setTimeout(() => {
+        if (!settled) proc.kill("SIGKILL");
       }, 5_000);
     };
 

@@ -1,6 +1,6 @@
 {
   "name": "@josephakern/pi-tree-sitter-cli",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "type": "module",
   "description": "Thin pi extension exposing the tree-sitter CLI as capped agent tools.",
   "keywords": [
