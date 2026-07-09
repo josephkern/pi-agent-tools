@@ -107,13 +107,14 @@ export function registerQueryTool(pi: ExtensionAPI, ctx: ToolContext): void {
   pi.registerTool({
     name: "tree_sitter_query",
     label: "Tree-sitter Query",
-    description: `Run raw Tree-sitter queries with the tree-sitter CLI. Requires an existing tree-sitter executable on PATH or TREE_SITTER_BIN; this package does not install Tree-sitter. Output is truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(
+    description: `Run raw Tree-sitter queries with the tree-sitter CLI. Requires an existing tree-sitter executable on PATH or TREE_SITTER_BIN; this package does not install Tree-sitter. Shipped recipe .scm files (imports, exports, function signatures, type declarations, syntax errors) live under ${ctx.recipesRoot()}/<language>/<task>.scm for languages typescript, javascript, python, universal; prefer them via queryFile when one fits. Output is truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(
       DEFAULT_MAX_BYTES,
     )}, whichever is hit first.`,
     promptSnippet: "tree_sitter_query — run raw Tree-sitter .scm queries with the CLI",
     promptGuidelines: [
       "Use tree_sitter_query after tree_sitter_parse has revealed the grammar node names for a file.",
       "Use inline query for short one-off patterns and queryFile for reusable or large .scm queries.",
+      `Shipped recipe .scm files for imports, exports, function signatures, type declarations, and syntax errors live under ${ctx.recipesRoot()}/<language>/<task>.scm (languages: typescript, javascript, python, universal); prefer them over hand-written queries when one fits.`,
       "Set compact=true when you need token-efficient capture output instead of the raw Tree-sitter CLI format.",
       "Use rowRange or containingRowRange with tree_sitter_query to restrict structural searches instead of adding custom helper tools.",
     ],

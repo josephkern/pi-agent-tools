@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import {
   ensureManagedPackageJson,
   fileExists,
@@ -11,6 +12,10 @@ import {
 import { runNpm, runTreeSitter } from "./process.ts";
 import type { TreeSitterRunOptions, TreeSitterRunResult } from "./types.ts";
 
+export function recipesRoot(): string {
+  return fileURLToPath(new URL("../queries", import.meta.url));
+}
+
 export interface ToolContext {
   runTreeSitter(
     args: string[],
@@ -22,6 +27,7 @@ export interface ToolContext {
     signal: AbortSignal | undefined,
     processTimeoutMs: number,
   ): Promise<TreeSitterRunResult>;
+  recipesRoot(): string;
   managedRoot(): string;
   managedNodeModulesPath(): string;
   managedPackageJsonPath(): string;
@@ -36,6 +42,7 @@ export function createToolContext(): ToolContext {
   return {
     runTreeSitter,
     runNpm,
+    recipesRoot,
     managedRoot,
     managedNodeModulesPath,
     managedPackageJsonPath,

@@ -127,9 +127,18 @@ queries/
   python/type-declarations.scm
 ```
 
-The skill recommends using `tree_sitter_tags` first for navigation, then `tree_sitter_query` with a recipe file when richer captures are needed.
+Shipped skills, all small and workflow-shaped:
+
+- `tree-sitter-recipes` — the recipe catalog and how to use it
+- `structural-review` — review code/diffs from structural facts before reading bodies
+- `tree-sitter-query-authoring` — write and validate new `.scm` queries from parse output
+- `post-edit-syntax-check` — verify edited files still parse before moving on
+
+The `tree_sitter_query` tool also advertises the absolute shipped-recipes directory in its prompt guidelines, so agents can reach recipes without reading a skill first.
 
 For project-specific patterns, prefer adding `.scm` files under `.pi/tree-sitter/queries/` or `tree-sitter/queries/` instead of adding wrapper tools.
+
+`test/skills.test.mjs` pins skills to reality (referenced query files exist, capture contracts match the shipped queries, mentioned tools are registered, example parameters exist in schemas). `npm run eval:skills` runs live tasks through pi against a configured model and scores whether the agent actually used the tools, recipes, and skills.
 
 ## Development
 

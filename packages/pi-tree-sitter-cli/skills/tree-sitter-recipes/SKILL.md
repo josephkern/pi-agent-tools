@@ -1,105 +1,51 @@
 ---
 name: tree-sitter-recipes
-description: Use raw Tree-sitter CLI tools with shipped and project .scm query recipes. Prefer focused recipe queries over broad repo dumps for structural facts.
+description: Answer structural code questions - what a file defines, imports, exports, its function signatures, types, or syntax errors - with shipped Tree-sitter query recipes instead of reading whole files. Use when asked about code structure in TypeScript, JavaScript, or Python.
 ---
 
 # Tree-sitter Recipes
 
-Use this skill when a user asks for structural code facts and the raw `tree_sitter_*` tools are available.
+Resolve the recipe paths below against this skill's directory.
 
-## Default workflow
+## Workflow
 
-1. Run `tree_sitter_languages` to confirm parser availability. Use `useManagedConfig=true` when relying on grammars installed with `tree_sitter_grammar_install`.
-2. If a needed grammar is missing, explain the two installation paths: install an npm grammar globally, e.g. `npm install -g tree-sitter-typescript`, so the default Tree-sitter config can discover it; or use `tree_sitter_grammar_install` for an isolated tool-local cache and pass `useManagedConfig=true` afterward.
-3. Run `tree_sitter_parse` with `mode="json-summary"` for broad health checks, file counts, and syntax status.
-4. Ask a narrow structural question, then choose the smallest useful path scope: one file, package, or directory before the repo root.
-5. Prefer `tree_sitter_query` with a recipe `.scm` file for imports, exports, signatures, types, or tool registrations.
-6. Use `tree_sitter_tags` for definitions/references/calls only when that is the goal, and avoid whole-repo tag dumps unless explicitly needed.
-7. Set `compact=true` for token-efficient formatting, but remember it does not reduce match count; narrow the query and paths first.
-8. Use `tree_sitter_parse` on a representative file or reduced snippet when a recipe fails, then adapt the query to the grammar node names.
-9. Summarize captures for the user. Raw Tree-sitter CLI rows are zero-based; compact output converts captures to one-based `file:line:column` locations.
-
-## Shipped query recipes
-
-Resolve these paths relative to this skill directory.
-
-| Task | Query file | Notes |
-| --- | --- | --- |
-| Syntax errors | `../../queries/universal/syntax-errors.scm` | Captures `@syntax.error` and `@syntax.missing`; works across most grammars. |
-| TypeScript signatures | `../../queries/typescript/function-signatures.scm` | Captures `@signature.name`, `@signature.params`, `@signature.return`, including arrow functions, function expressions, and class arrow fields. |
-| TypeScript imports | `../../queries/typescript/imports.scm` | Captures import sources/default/named/namespace imports. |
-| TypeScript exports | `../../queries/typescript/exports.scm` | Captures exported functions, classes (incl. abstract), interfaces, type aliases, enums, values, export clauses, re-export sources, and default exports. |
-| TypeScript type declarations | `../../queries/typescript/type-declarations.scm` | Captures classes (incl. abstract), interfaces, type aliases, and enums. |
-| pi tool registrations | `../../queries/typescript/tool-registrations.scm` | Finds `pi.registerTool({ name: ... })` calls. |
-| JavaScript signatures | `../../queries/javascript/function-signatures.scm` | Captures names and params, including arrow functions, function expressions, and class arrow fields; JavaScript has no return type syntax. |
-| JavaScript imports | `../../queries/javascript/imports.scm` | Captures import sources/default/named/namespace imports. |
-| JavaScript exports | `../../queries/javascript/exports.scm` | Captures exported functions, classes, values, export clauses, re-export sources, and default exports. |
-| Python signatures | `../../queries/python/function-signatures.scm` | Captures function/method names, params, and return annotations. |
-| Python imports | `../../queries/python/imports.scm` | Captures import sources, imported names, aliases, and wildcard imports. |
-| Python exports | `../../queries/python/exports.scm` | Captures explicit `__all__` entries plus top-level functions, classes, and assigned values. |
-| Python type declarations | `../../queries/python/type-declarations.scm` | Captures classes and PEP 695 type aliases. |
+1. Confirm parser availability with `tree_sitter_languages` (add `useManagedConfig=true` if grammars were installed with `tree_sitter_grammar_install`). If a grammar is missing, suggest `npm install -g tree-sitter-<language>` or the managed install path.
+2. Pick the recipe matching the question and run `tree_sitter_query` with `captures=true, compact=true` on the narrowest path scope: one file or directory before the repo root.
+3. Use `tree_sitter_tags` instead when the goal is definitions/references navigation; use `tree_sitter_parse` with `mode="json-summary"` for parse health.
+4. If a recipe misses a construct, inspect the tree with `tree_sitter_parse` and adapt - see the `tree-sitter-query-authoring` skill for writing new queries.
+5. Summarize captures for the user; compact output is one-based `file:line:column`.
 
 Example:
 
 ```text
 tree_sitter_query(
-  queryFile="packages/pi-tree-sitter-cli/queries/typescript/function-signatures.scm",
+  queryFile="<this skill directory>/../../queries/typescript/function-signatures.scm",
   paths=["src/index.ts"],
-  useManagedConfig=true,
   captures=true,
   compact=true
 )
 ```
 
-## Capture contracts
+## Shipped query recipes
 
-Prefer stable semantic capture names across language-specific recipes:
+| Task | Query file | Notes |
+| --- | --- | --- |
+| Syntax errors | `../../queries/universal/syntax-errors.scm` | Captures `@syntax.error` and `@syntax.missing`; works across most grammars. |
+| TypeScript signatures | `../../queries/typescript/function-signatures.scm` | Captures `@signature.name`, `@signature.params`, `@signature.return`, including arrow functions, function expressions, and class arrow fields. |
+| TypeScript imports | `../../queries/typescript/imports.scm` | Captures `@import.statement`, `@import.source`, `@import.default`, `@import.namespace`, `@import.name`, `@import.alias`. |
+| TypeScript exports | `../../queries/typescript/exports.scm` | Captures `@export.function`, `@export.class` (incl. abstract), `@export.interface`, `@export.type`, `@export.enum`, `@export.value`, `@export.name`, `@export.alias`, `@export.source`, `@export.namespace`, `@export.default`. |
+| TypeScript type declarations | `../../queries/typescript/type-declarations.scm` | Captures `@type.class` (incl. abstract), `@type.interface`, `@type.alias`, `@type.enum`. |
+| pi tool registrations | `../../queries/typescript/tool-registrations.scm` | Finds `pi.registerTool({ name: ... })` calls; captures `@tool.name`, `@tool.name_key`, `@tool.registry_object`, `@tool.registry_method`. |
+| JavaScript signatures | `../../queries/javascript/function-signatures.scm` | Captures `@signature.name`, `@signature.params`, including arrow functions, function expressions, and class arrow fields. |
+| JavaScript imports | `../../queries/javascript/imports.scm` | Captures `@import.statement`, `@import.source`, `@import.default`, `@import.namespace`, `@import.name`, `@import.alias`. |
+| JavaScript exports | `../../queries/javascript/exports.scm` | Captures `@export.function`, `@export.class`, `@export.value`, `@export.name`, `@export.alias`, `@export.source`, `@export.namespace`, `@export.default`. |
+| Python signatures | `../../queries/python/function-signatures.scm` | Captures `@signature.name`, `@signature.params`, `@signature.return`. |
+| Python imports | `../../queries/python/imports.scm` | Captures `@import.source`, `@import.name`, `@import.alias`, `@import.star`. |
+| Python exports | `../../queries/python/exports.scm` | Captures `@export.name` (`__all__` entries), `@export.list`, `@export.function`, `@export.class`, `@export.value`. |
+| Python type declarations | `../../queries/python/type-declarations.scm` | Captures `@type.class` and `@type.alias` (PEP 695). |
 
-- `@signature.name`
-- `@signature.params`
-- `@signature.return`
-- `@import.source`
-- `@import.default`
-- `@import.name`
-- `@import.alias`
-- `@import.namespace`
-- `@import.star`
-- `@export.function`
-- `@export.class`
-- `@export.interface`
-- `@export.type`
-- `@export.enum`
-- `@export.value`
-- `@export.name`
-- `@export.alias`
-- `@export.list`
-- `@export.source`
-- `@export.namespace`
-- `@export.default`
-- `@type.class`
-- `@type.interface`
-- `@type.alias`
-- `@type.enum`
+Shared capture names (`@signature.*`, `@import.*`, `@export.*`, `@type.*`) are stable across languages so output can be summarized uniformly.
 
-The `.scm` files remain grammar-specific, but shared capture names let the agent summarize output uniformly.
+## Project recipes
 
-## Project and user recipes
-
-Do not add wrapper tools just to encode a structural pattern. For repeated project-specific patterns, create or use `.scm` files instead.
-
-Recommended project-local locations:
-
-```text
-.pi/tree-sitter/queries/<language>/<task>.scm
-tree-sitter/queries/<language>/<task>.scm
-```
-
-Use `.pi/tree-sitter/queries` for pi-specific project recipes. Use `tree-sitter/queries` when the queries should be obvious to non-pi tooling too.
-
-When creating a new recipe:
-
-1. Inspect a representative syntax tree with `tree_sitter_parse`.
-2. Start with a small inline query.
-3. Validate with `tree_sitter_query(..., captures=true)`.
-4. Save it as a `.scm` file only if it is likely to be reused.
-5. Prefer the shared capture contracts above when possible.
+For repeated project-specific patterns, prefer `.scm` files over wrapper tools: `.pi/tree-sitter/queries/<language>/<task>.scm` (pi-specific) or `tree-sitter/queries/<language>/<task>.scm` (tool-agnostic). See the `tree-sitter-query-authoring` skill.
