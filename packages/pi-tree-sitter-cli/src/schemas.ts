@@ -1,3 +1,7 @@
+// TODO: add schema validation at the tool layer (e.g. Type.is(params, Schema))
+// so each execute() entry-point validates before casting to Record<string, unknown>.
+// This would catch type mismatches at tool invocation time instead of during
+// CLI-arg building (which then throws and falls through to generic errors).
 import { Type } from "typebox";
 
 const PathInputs = {

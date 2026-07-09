@@ -71,6 +71,9 @@ async function resolveExecutable(command: string, missingMessage: string, envNam
 
 // Process groups still alive when this process exits get a best-effort
 // SIGKILL so detached children cannot outlive the harness.
+// TODO: refactor this global state into a context-bound pattern (see
+// src/context.ts ToolContext) so tools can be unit-tested in isolation
+// and hot-reloading doesn't leak process group references.
 const liveProcessGroups = new Set<number>();
 let exitSweepRegistered = false;
 
@@ -101,6 +104,13 @@ async function resolveNpmBin(): Promise<string> {
   return resolveExecutable(NPM_BIN, MISSING_NPM, "NPM_BIN");
 }
 
+/**
+ * TODO: extract this into its own module (e.g. src/child-process.ts) with
+ * a public interface like `runChild(command, args, opts)`.  The current
+ * 200-line function handles spawn, data piping, signal routing, timeout,
+ * output capping, process-group cleanup, and platform shell routing — all
+ * in one scope.  A separate module would make it testable and keep
+ * `process.ts` thin (resolve-bin + call → run). */
 async function execCommand(
   command: string,
   args: string[],
